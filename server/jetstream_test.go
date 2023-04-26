@@ -20801,3 +20801,61 @@ func TestJetStreamKVHistoryRegression(t *testing.T) {
 		})
 	}
 }
+
+func TestJetStreamConsumerDefaultsFromStream(t *testing.T) {
+	s := RunBasicJetStreamServer(t)
+	defer s.Shutdown()
+
+	acc := s.GlobalAccount()
+	if _, err := acc.addStream(&StreamConfig{
+		Name:                     "test",
+		Subjects:                 []string{"test.*"},
+		DefaultMaxAckPending:     15,
+		DefaultInactiveThreshold: time.Second,
+	}); err != nil {
+		t.Fatalf("Failed to add stream: %v", err)
+	}
+
+	// Connect a client and send a message which should trigger the stream creation.
+	nc := clientConnectToServer(t, s)
+	defer nc.Close()
+
+	js, err := nc.JetStream()
+	if err != nil {
+		t.Fatalf("Failed to connect to JetStream: %v", err)
+	}
+
+	// First consumer should inherit the defaults.
+
+	c1, err := js.AddConsumer("test", &nats.ConsumerConfig{
+		Name: "test_consumer1",
+	})
+	if err != nil {
+		t.Fatalf("Failed to add consumer: %v", err)
+	}
+
+	switch {
+	case c1.Config.InactiveThreshold != time.Second:
+		t.Fatalf("InactiveThreshold should be 1s, got %s", c1.Config.InactiveThreshold)
+	case c1.Config.MaxAckPending != 15:
+		t.Fatalf("MaxAckPending should be 15, got %d", c1.Config.MaxAckPending)
+	}
+
+	// Second consumer shouldn't inherit the default as we have
+	// supplied our own override values.
+	c2, err := js.AddConsumer("test", &nats.ConsumerConfig{
+		Name:              "test_consumer2",
+		InactiveThreshold: time.Second * 2,
+		MaxAckPending:     30,
+	})
+	if err != nil {
+		t.Fatalf("Failed to add consumer: %v", err)
+	}
+
+	switch {
+	case c2.Config.InactiveThreshold != time.Second*2:
+		t.Fatalf("InactiveThreshold should be 2s, got %s", c2.Config.InactiveThreshold)
+	case c2.Config.MaxAckPending != 30:
+		t.Fatalf("MaxAckPending should be 30, got %d", c2.Config.MaxAckPending)
+	}
+}

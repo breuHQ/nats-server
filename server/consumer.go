@@ -104,6 +104,20 @@ type ConsumerConfig struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
+// defaultsFromStream checks for unset values that might be set at the stream
+// level and populates them if needed.
+func (c *ConsumerConfig) defaultsFromStream(s *StreamConfig) {
+	if c == nil || s == nil {
+		return // Probably shouldn't happen.
+	}
+	if c.MaxAckPending == 0 {
+		c.MaxAckPending = s.DefaultMaxAckPending
+	}
+	if c.InactiveThreshold == 0 {
+		c.InactiveThreshold = s.DefaultInactiveThreshold
+	}
+}
+
 // SequenceInfo has both the consumer and the stream sequence and last activity.
 type SequenceInfo struct {
 	Consumer uint64     `json:"consumer_seq"`
@@ -626,6 +640,10 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 	mset.mu.RLock()
 	s, jsa, tierName, cfg, acc := mset.srv, mset.jsa, mset.tier, mset.cfg, mset.acc
 	retention := cfg.Retention
+
+	// Populate some defaults from the stream if they are not already set
+	// in the consumer config.
+	config.defaultsFromStream(&mset.cfg)
 	mset.mu.RUnlock()
 
 	// If we do not have the consumer currently assigned to us in cluster mode we will proceed but warn.

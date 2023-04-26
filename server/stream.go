@@ -85,6 +85,11 @@ type StreamConfig struct {
 	// all older messages using a special msg header.
 	AllowRollup bool `json:"allow_rollup_hdrs"`
 
+	// The following defaults will apply to consumers when created against
+	// this stream, unless overridden manually.
+	DefaultInactiveThreshold time.Duration `json:"default_inactive_threshold,omitempty"`
+	DefaultMaxAckPending     int           `json:"default_max_ack_pending,omitempty"`
+
 	// Metadata is additional metadata for the Stream.
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
