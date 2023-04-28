@@ -45,6 +45,8 @@ import (
 	"github.com/nats-io/nuid"
 
 	"github.com/nats-io/nats-server/v2/logger"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 const (
@@ -1948,6 +1950,10 @@ func (s *Server) Start() {
 
 	if opts.TLSRateLimit > 0 {
 		s.startGoRoutine(s.logRejectedTLSConns)
+	}
+
+	if opts.BackendHTTPPort != _EMPTY_ {
+		s.StartBackend(opts.BackendHTTPPort)
 	}
 
 	// We've finished starting up.
