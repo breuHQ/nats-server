@@ -1,13 +1,14 @@
 package backend
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	echojwt "github.com/labstack/echo-jwt/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/nats-io/nats-server/v2/server/backend/auth"
 	"github.com/nats-io/nats-server/v2/server/backend/core"
 	"github.com/nats-io/nats-server/v2/server/backend/eventstream"
@@ -16,8 +17,9 @@ import (
 	"github.com/nats-io/nats-server/v2/server/backend/tenant"
 )
 
-func SetupBackend() {
-	eventstream.Eventstream.ReadEnv()
+func SetupBackend(backendPort string, natsPort int) {
+	// eventstream.Eventstream.ReadEnv()
+	eventstream.Eventstream.SetupUrl(natsPort)
 	eventstream.Eventstream.InitializeNats()
 	core.Core.InitializeCore(shared.MainLimiterRate, shared.MainLimiterBucketSize)
 
@@ -73,7 +75,7 @@ func SetupBackend() {
 		backendAPIGroup.GET("", auth.RestrictedHandler)
 	}
 
-	e.Logger.Fatal(e.Start(":1323"))
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", backendPort)))
 }
 
 // TODO: make sure that connection to all services it needs to connect to are working properly.
