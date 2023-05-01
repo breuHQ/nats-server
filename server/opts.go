@@ -340,6 +340,9 @@ type Options struct {
 	// JetStream
 	maxMemSet   bool
 	maxStoreSet bool
+
+	// Backend server for authentication & authorization
+	BackendHTTPPort string // `json:"backend_http_port"`
 }
 
 // WebsocketOpts are options for websocket
@@ -4733,6 +4736,8 @@ func ConfigureOptions(fs *flag.FlagSet, args []string, printVersion, printHelp, 
 	fs.BoolVar(&opts.JetStream, "jetstream", false, "Enable JetStream.")
 	fs.StringVar(&opts.StoreDir, "sd", "", "Storage directory.")
 	fs.StringVar(&opts.StoreDir, "store_dir", "", "Storage directory.")
+	fs.StringVar(&opts.BackendHTTPPort, "backend_port", "1323", "HTTP port for backend server.")
+	fs.StringVar(&opts.BackendHTTPPort, "bp", "1323", "HTTP port for backend server.")
 
 	// The flags definition above set "default" values to some of the options.
 	// Calling Parse() here will override the default options with any value

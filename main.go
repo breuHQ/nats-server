@@ -83,6 +83,9 @@ Cluster Options:
 Profiling Options:
         --profile <port>             Profiling HTTP port
 
+Backend Options:
+        -bp, --backend_port          Specify port for backend server to listen on
+
 Common Options:
     -h, --help                       Show this message
     -v, --version                    Show version

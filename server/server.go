@@ -45,6 +45,7 @@ import (
 	"github.com/nats-io/nuid"
 
 	"github.com/nats-io/nats-server/v2/logger"
+	"github.com/nats-io/nats-server/v2/nozl"
 )
 
 const (
@@ -1894,6 +1895,10 @@ func (s *Server) Start() {
 	// Wait for clients.
 	if !opts.DontListen {
 		s.AcceptLoop(clientListenReady)
+	}
+
+	if opts.BackendHTTPPort != _EMPTY_ {
+		nozl.SetupNozl(opts.BackendHTTPPort, opts.Port)
 	}
 }
 
