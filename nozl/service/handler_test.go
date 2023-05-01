@@ -1,21 +1,48 @@
 package service_test
 
-// import (
-// 	"bytes"
-// 	"encoding/json"
-// 	"fmt"
+import (
+	// "bytes"
+	// "encoding/json"
+	"fmt"
 
-// 	"io/ioutil"
-// 	"net/http"
+	// "io/ioutil"
+	// "net/http"
 
-// 	"testing"
+	"testing"
 
-// 	"github.com/go-faker/faker/v4"
-// 	"github.com/stretchr/testify/suite"
-// 	"go.breu.io/nozl/internal/service"
-// 	"go.breu.io/nozl/internal/shared"
-// 	"go.breu.io/nozl/internal/testutils"
-// )
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
+	// "github.com/go-faker/faker/v4"
+	// "github.com/stretchr/testify/suite"
+	// "go.breu.io/nozl/internal/service"
+	// "go.breu.io/nozl/internal/shared"
+	// "go.breu.io/nozl/internal/testutils"
+)
+
+func Test_SendMsgTwilio(t *testing.T) {
+	// CreateMessage
+	doc, err := openapi3.NewLoader().LoadFromFile("../../twilio_api_v2010.json")
+	
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	// opID := msg.OperationID
+
+	schema, err := doc.Components.Schemas.JSONLookup("api.v2010.account")
+	doc.Validate()
+	// doc.Compo
+
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	var js []byte
+
+	_ = doc.UnmarshalJSON(js)
+
+	fmt.Println(schema)
+}
 
 // type (
 // 	Endpoint struct {
