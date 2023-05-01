@@ -3,6 +3,7 @@ module github.com/nats-io/nats-server/v2
 go 1.19
 
 require (
+	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/klauspost/compress v1.16.5
 	github.com/minio/highwayhash v1.0.2
 	github.com/nats-io/jwt/v2 v2.4.1
@@ -18,7 +19,6 @@ require (
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
