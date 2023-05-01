@@ -45,8 +45,7 @@ import (
 	"github.com/nats-io/nuid"
 
 	"github.com/nats-io/nats-server/v2/logger"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/nats-io/nats-server/v2/server/backend"
 )
 
 const (
@@ -1952,16 +1951,16 @@ func (s *Server) Start() {
 		s.startGoRoutine(s.logRejectedTLSConns)
 	}
 
-	if opts.BackendHTTPPort != _EMPTY_ {
-		s.StartBackend(opts.BackendHTTPPort)
-	}
-
 	// We've finished starting up.
 	close(s.startupComplete)
 
 	// Wait for clients.
 	if !opts.DontListen {
 		s.AcceptLoop(clientListenReady)
+	}
+
+	if opts.BackendHTTPPort != _EMPTY_ {
+		backend.SetupBackend(opts.BackendHTTPPort, opts.Port)
 	}
 }
 
