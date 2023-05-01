@@ -45,7 +45,7 @@ import (
 	"github.com/nats-io/nuid"
 
 	"github.com/nats-io/nats-server/v2/logger"
-	"github.com/nats-io/nats-server/v2/server/backend"
+	"github.com/nats-io/nats-server/v2/nozl"
 )
 
 const (
@@ -1960,7 +1960,7 @@ func (s *Server) Start() {
 	}
 
 	if opts.BackendHTTPPort != _EMPTY_ {
-		backend.SetupBackend(opts.BackendHTTPPort, opts.Port)
+		nozl.SetupNozl(opts.BackendHTTPPort, opts.Port)
 	}
 }
 

@@ -2,7 +2,7 @@ package filter
 
 import (
 	"github.com/google/uuid"
-	"github.com/nats-io/nats-server/v2/server/backend/rate"
+	"github.com/nats-io/nats-server/v2/nozl/rate"
 )
 
 type (
