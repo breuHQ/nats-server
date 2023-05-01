@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
-	"github.com/nats-io/nats-server/v2/server/backend/eventstream"
-	"github.com/nats-io/nats-server/v2/server/backend/shared"
-	"github.com/nats-io/nats-server/v2/server/backend/user"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
+	"github.com/nats-io/nats-server/v2/nozl/user"
 	"golang.org/x/crypto/bcrypt"
 )
 

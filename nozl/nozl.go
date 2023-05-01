@@ -1,4 +1,4 @@
-package backend
+package nozl
 
 import (
 	"fmt"
@@ -9,15 +9,15 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/nats-io/nats-server/v2/server/backend/auth"
-	"github.com/nats-io/nats-server/v2/server/backend/core"
-	"github.com/nats-io/nats-server/v2/server/backend/eventstream"
-	"github.com/nats-io/nats-server/v2/server/backend/service"
-	"github.com/nats-io/nats-server/v2/server/backend/shared"
-	"github.com/nats-io/nats-server/v2/server/backend/tenant"
+	"github.com/nats-io/nats-server/v2/nozl/auth"
+	"github.com/nats-io/nats-server/v2/nozl/core"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/service"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
+	"github.com/nats-io/nats-server/v2/nozl/tenant"
 )
 
-func SetupBackend(backendPort string, natsPort int) {
+func SetupNozl(backendPort string, natsPort int) {
 	// eventstream.Eventstream.ReadEnv()
 	shared.InitializeLogger()
 	eventstream.Eventstream.SetupUrl(natsPort)

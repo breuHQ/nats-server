@@ -11,12 +11,12 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
-	"github.com/nats-io/nats-server/v2/server/backend/eventstream"
-	"github.com/nats-io/nats-server/v2/server/backend/filter"
-	"github.com/nats-io/nats-server/v2/server/backend/rate"
-	"github.com/nats-io/nats-server/v2/server/backend/service"
-	"github.com/nats-io/nats-server/v2/server/backend/shared"
-	"github.com/nats-io/nats-server/v2/server/backend/tenant"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/filter"
+	"github.com/nats-io/nats-server/v2/nozl/rate"
+	"github.com/nats-io/nats-server/v2/nozl/service"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
+	"github.com/nats-io/nats-server/v2/nozl/tenant"
 )
 
 type (

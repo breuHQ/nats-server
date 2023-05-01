@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/nats-io/nats-server/v2/server/backend/rate"
-	"github.com/nats-io/nats-server/v2/server/backend/shared"
+	"github.com/nats-io/nats-server/v2/nozl/rate"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
 func GetMainLimiterRate(ctx echo.Context) error {

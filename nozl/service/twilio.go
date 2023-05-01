@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/nats-io/nats-server/v2/server/backend/eventstream"
-	"github.com/nats-io/nats-server/v2/server/backend/shared"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
 	"github.com/twilio/twilio-go"
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 )
