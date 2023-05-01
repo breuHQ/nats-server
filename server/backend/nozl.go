@@ -19,6 +19,7 @@ import (
 
 func SetupBackend(backendPort string, natsPort int) {
 	// eventstream.Eventstream.ReadEnv()
+	shared.InitializeLogger()
 	eventstream.Eventstream.SetupUrl(natsPort)
 	eventstream.Eventstream.InitializeNats()
 	core.Core.InitializeCore(shared.MainLimiterRate, shared.MainLimiterBucketSize)
