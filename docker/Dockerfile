@@ -38,3 +38,4 @@ WORKDIR /app
 COPY --from=base /app/main /app/main
 EXPOSE 1323
 ENTRYPOINT [ "/bin/sh", "-c", "/app/main" ]
+# This is just to test workflows
