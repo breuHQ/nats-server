@@ -2,7 +2,7 @@ package eventstream
 
 import (
 	"fmt"
-	"os"
+	// "os"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -16,7 +16,8 @@ type (
 		Conn      *nats.Conn
 		EnCon     *nats.EncodedConn
 		Stream    nats.JetStreamContext
-		ServerURL string `env:"NATS_SERVER_URL" env-default:"nats://localhost:4222"`
+		// ServerURL string `env:"NATS_SERVER_URL" env-default:"nats://localhost:4222"`
+		ServerURL string 
 	}
 )
 
@@ -25,14 +26,19 @@ var (
 	MessageStatus chan string
 )
 
-func (n *eventstream) ReadEnv() {
-	url, ok := os.LookupEnv("NATS_SERVER_URL")
+// func (n *eventstream) ReadEnv() {
+// 	url, ok := os.LookupEnv("NATS_SERVER_URL")
 
-	if ok {
-		n.ServerURL = url
-	} else {
-		shared.Logger.Warn("Environment variable `NATS_SERVERS_URL` not found. Using default value")
-	}
+// 	if ok {
+// 		n.ServerURL = url
+// 	} else {
+// 		shared.Logger.Warn("Environment variable `NATS_SERVERS_URL` not found. Using default value")
+// 	}
+
+// }
+
+func (n *eventstream) SetupUrl(port int) {
+	n.ServerURL = fmt.Sprintf("nats://localhost:%d", port)
 }
 
 func (n *eventstream) InitializeNats() {
