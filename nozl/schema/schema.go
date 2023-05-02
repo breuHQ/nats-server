@@ -24,8 +24,9 @@ func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 	}
 }
 
-func ParseOpenApiV3Schema() error {
-	doc, err := openapi3.NewLoader().LoadFromFile("/home/tam/Documents/codes/breu/nats-server/twilio_api_v2010.json")
+func ParseOpenApiV3Schema(specFile []byte) error {
+	// doc, err := openapi3.NewLoader().LoadFromFile("/home/tam/Documents/codes/breu/nats-server/twilio_api_v2010.json")
+	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
 	if err != nil {
 		shared.Logger.Error("Failed to ready open API spec!")
