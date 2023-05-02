@@ -9,11 +9,15 @@ import (
 func SpecUploadHandler(ctx echo.Context) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
-		return err
+		return ctx.JSON(http.StatusExpectationFailed, echo.Map{
+			"message": "File Upload Error",
+		})
 	}
 	src, err := file.Open()
 	if err != nil {
-		return err
+		return ctx.JSON(http.StatusExpectationFailed, echo.Map{
+			"message": "File Opening Error",
+		})
 	}
 	defer src.Close()
 	return ctx.JSON(http.StatusOK, echo.Map{
