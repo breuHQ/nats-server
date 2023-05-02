@@ -1,9 +1,7 @@
 package schema
 
 import (
-	// "encoding/json"
 	"encoding/json"
-	// "fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
@@ -25,7 +23,6 @@ func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 }
 
 func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
-	// doc, err := openapi3.NewLoader().LoadFromFile("/home/tam/Documents/codes/breu/nats-server/twilio_api_v2010.json")
 	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
 	if err != nil {
@@ -36,6 +33,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	var schemaList map[string]Schema
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	entry, err := schemaKv.Get(serviceID)
+
 	if err != nil {
 		schemaList = make(map[string]Schema)
 	} else {
@@ -68,10 +66,6 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 		shared.Logger.Error("Failed to save schema in data store.")
 		return err
 	}
-
-	// if err = schemaKv.Get("service_id"); err != nil {
-	// 	schemaKv.Put("service_id", jsonPayload)
-	// }
 
 	return nil
 }
