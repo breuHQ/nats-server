@@ -24,7 +24,7 @@ func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 	}
 }
 
-func ParseOpenApiV3Schema(specFile []byte) error {
+func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	// doc, err := openapi3.NewLoader().LoadFromFile("/home/tam/Documents/codes/breu/nats-server/twilio_api_v2010.json")
 	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
@@ -33,8 +33,17 @@ func ParseOpenApiV3Schema(specFile []byte) error {
 		return err
 	}
 
+	var schemaList map[string]Schema
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
-	schemaList := map[string]Schema{}
+	entry, err := schemaKv.Get(serviceID)
+	if err != nil {
+		schemaList = make(map[string]Schema)
+	} else {
+		err := json.Unmarshal(entry.Value(), &schemaList)
+		if err != nil {
+			return err
+		}
+	}
 
 	for pathKey, pathValue := range doc.Paths {
 
@@ -53,7 +62,7 @@ func ParseOpenApiV3Schema(specFile []byte) error {
 
 	jsonPayload, _ := json.Marshal(schemaList)
 
-	_, err = schemaKv.Put("service_id", jsonPayload)
+	_, err = schemaKv.Put(serviceID, jsonPayload)
 
 	if err != nil {
 		shared.Logger.Error("Failed to save schema in data store.")
