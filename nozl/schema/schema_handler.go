@@ -9,6 +9,7 @@ import (
 )
 
 func UploadOpenApiSpecHandler(ctx echo.Context) error {
+	serviceID := ctx.FormValue("service_id")
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		return ctx.JSON(http.StatusBadRequest, echo.Map{
@@ -33,7 +34,7 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	if err = ParseOpenApiV3Schema(buf.Bytes()); err != nil {
+	if err = ParseOpenApiV3Schema(serviceID, buf.Bytes()); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Error in parsing file",
 		})
