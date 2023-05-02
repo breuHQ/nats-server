@@ -18,6 +18,7 @@ const (
 	TenantAPIKV       string = "TenanatApiKey"
 	UserKV            string = "User"
 	MsgWaitListKV     string = "MsgWaitList"
+	SchemaKv          string = "schema"
 	MsgLogKV          string = "MsgLog"
 	SenderPhoneNumber string = "+19034598701"
 )
