@@ -12,6 +12,7 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/auth"
 	"github.com/nats-io/nats-server/v2/nozl/core"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/schema"
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 	"github.com/nats-io/nats-server/v2/nozl/tenant"
@@ -72,6 +73,8 @@ func SetupNozl(backendPort string, natsPort int) {
 		backendAPIGroup.GET("/message/:message_id", eventstream.ForceSendMsgHandler)
 		backendAPIGroup.DELETE("/message/:message_id", eventstream.DeleteMsgHandler)
 		backendAPIGroup.DELETE("/message/log", eventstream.DeleteMsgLogHandler)
+
+		backendAPIGroup.POST("/schema/upload", schema.SpecUploadHandler)
 
 		backendAPIGroup.GET("", auth.RestrictedHandler)
 	}
