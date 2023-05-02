@@ -41,6 +41,6 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "File uploaded successfully",
+		"message": "Open API file parsed successfully",
 	})
 }
