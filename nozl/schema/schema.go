@@ -1,10 +1,15 @@
 package schema
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
@@ -84,6 +89,28 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	msgBody := msg.Body
 	fmt.Println(schemaValid)
 	fmt.Println(msgBody)
+
+	ctx := context.Background()
+	jsonData, _ := json.Marshal(&msgBody)
+	formData := strings.NewReader(string(jsonData))
+
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
+	headers := make(map[string]string)
+	headers["Content-Type"] = "application/x-www-form-urlencoded" //schemaValid.PathDetails.RequestBody.Value.Content
+	for key, val := range headers {
+		httpReq.Header.Add(key, val)
+	}
+
+	input := &openapi3filter.RequestValidationInput{
+		Request:      httpReq,
+		PathParams:   map[string]string{},
+		QueryParams:  map[string][]string{},
+		Route:        &routers.Route{},
+		Options:      &openapi3filter.Options{},
+		ParamDecoder: func(param *openapi3.Parameter, values []string) (interface{}, *openapi3.Schema, error) {},
+	}
+
+	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
 	return false, nil
 }
