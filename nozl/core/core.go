@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/filter"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
+	"github.com/nats-io/nats-server/v2/nozl/schema"
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 	"github.com/nats-io/nats-server/v2/nozl/tenant"
@@ -165,6 +166,10 @@ func handleLimiter(c *core) nats.Handler {
 
 func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
+		_, err := schema.ValidateOpenAPIV3Schema(msg)
+		if err != nil {
+			shared.Logger.Error(err.Error())
+		}
 		if c.filterLimiterAllow(msg) {
 			shared.Logger.Info(msg.ID,
 				zap.String("Subject", "Filter"),
