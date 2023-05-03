@@ -48,13 +48,17 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 		if pathValue.Get != nil {
 			schemaList[pathValue.Get.OperationID] = addSchema(pathKey, "get", pathValue.Get)
-		} else if pathValue.Post != nil {
+		}
+		if pathValue.Post != nil {
 			schemaList[pathValue.Post.OperationID] = addSchema(pathKey, "post", pathValue.Post)
-		} else if pathValue.Put != nil {
+		}
+		if pathValue.Put != nil {
 			schemaList[pathValue.Put.OperationID] = addSchema(pathKey, "put", pathValue.Put)
-		} else if pathValue.Patch != nil {
+		}
+		if pathValue.Patch != nil {
 			schemaList[pathValue.Patch.OperationID] = addSchema(pathKey, "patch", pathValue.Patch)
-		} else if pathValue.Delete != nil {
+		}
+		if pathValue.Delete != nil {
 			schemaList[pathValue.Delete.OperationID] = addSchema(pathKey, "delete", pathValue.Delete)
 		}
 	}
