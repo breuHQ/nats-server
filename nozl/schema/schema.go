@@ -69,3 +69,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 	return nil
 }
+
+func CheckOpenAPIV3SchemaIsValid(msg eventstream.Message) (bool, error) {
+	return false, nil
+}
