@@ -31,7 +31,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	}
 
 	var schemaList map[string]Schema
-	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
+	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	entry, err := schemaKv.Get(serviceID)
 
 	if err != nil {
