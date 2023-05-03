@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
@@ -70,6 +71,38 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	return nil
 }
 
-func CheckOpenAPIV3SchemaIsValid(msg eventstream.Message) (bool, error) {
+func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
+	schemaValid, err := GetMsgValidSchema(msg)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return false, err
+	}
+	msgBody := msg.Body
+	fmt.Println(schemaValid)
+	fmt.Println(msgBody)
+
 	return false, nil
+}
+
+func GetMsgValidSchema(msg *eventstream.Message) (Schema, error) {
+	schemaKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return Schema{}, err
+	}
+
+	entry, err := schemaKv.Get(msg.ServiceID)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return Schema{}, err
+	}
+
+	var schemaList map[string]Schema
+	err = json.Unmarshal(entry.Value(), &schemaList)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return Schema{}, err
+	}
+
+	return schemaList[msg.OperationID], nil
 }
