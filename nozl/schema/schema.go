@@ -76,7 +76,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 }
 
 func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
-	schemaValid, err := GetMsgValidSchema(msg)
+	schemaValid, err := GetMsgRefSchema(msg)
 	if err != nil {
 		shared.Logger.Error(err.Error())
 		return false, err
@@ -88,7 +88,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	return false, nil
 }
 
-func GetMsgValidSchema(msg *eventstream.Message) (Schema, error) {
+func GetMsgRefSchema(msg *eventstream.Message) (Schema, error) {
 	schemaKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
