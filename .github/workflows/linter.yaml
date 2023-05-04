@@ -4,13 +4,13 @@ on: [push, pull_request]
 
 jobs:
   super-lint:
-    name: Lint
+    name: Linter
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
 
       - name: run super-linter
         uses: github/super-linter@v3
-        env:
-          DEFAULT_BRANCH: nozl-dev
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # env:
+        #   DEFAULT_BRANCH: nozl-dev
+        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
