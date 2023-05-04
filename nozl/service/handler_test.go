@@ -3,7 +3,6 @@ package service_test
 // import (
 // 	"bytes"
 // 	"encoding/json"
-// 	"fmt"
 
 // 	"io/ioutil"
 // 	"net/http"
@@ -16,6 +15,7 @@ package service_test
 // 	"go.breu.io/nozl/internal/shared"
 // 	"go.breu.io/nozl/internal/testutils"
 // )
+
 
 // type (
 // 	Endpoint struct {

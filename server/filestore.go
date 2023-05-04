@@ -2716,11 +2716,27 @@ func (fs *fileStore) removeMsg(seq uint64, secure, viaLimits, needFSLock bool) (
 	// Now just load regardless.
 	// TODO(dlc) - Figure out a way not to have to load it in, we need subject tracking outside main data block.
 	if mb.cacheNotLoaded() {
-		if err := mb.loadMsgsWithLock(); err != nil {
-			mb.mu.Unlock()
-			fsUnlock()
+		// We do not want to block possible activity within another msg block.
+		// We have to unlock both locks and acquire the mb lock in the loadMsgs() call to avoid a deadlock if another
+		// go routine was trying to get fs then this mb lock at the same time. E.g. another call to remove for same block.
+		mb.mu.Unlock()
+		fsUnlock()
+		if err := mb.loadMsgs(); err != nil {
 			return false, err
 		}
+		fsLock()
+		// We need to check if things changed out from underneath us.
+		if fs.closed {
+			fsUnlock()
+			return false, ErrStoreClosed
+		}
+		mb.mu.Lock()
+		if mb.closed || seq < mb.first.seq {
+			mb.mu.Unlock()
+			fsUnlock()
+			return false, nil
+		}
+		// cacheLookup below will do dmap check so no need to repeat here.
 	}
 
 	var smv StoreMsg
@@ -2728,6 +2744,10 @@ func (fs *fileStore) removeMsg(seq uint64, secure, viaLimits, needFSLock bool) (
 	if err != nil {
 		mb.mu.Unlock()
 		fsUnlock()
+		// Mimic err behavior from above check to dmap. No error returned if already removed.
+		if err == errDeletedMsg {
+			err = nil
+		}
 		return false, err
 	}
 	// Grab size
@@ -6104,6 +6124,16 @@ func (fs *fileStore) Delete() error {
 	if fs.isClosed() {
 		// Always attempt to remove since we could have been closed beforehand.
 		os.RemoveAll(fs.fcfg.StoreDir)
+		// Since we did remove, if we did have anything remaining make sure to
+		// call into any storage updates that had been registered.
+		fs.mu.Lock()
+		cb, msgs, bytes := fs.scb, int64(fs.state.Msgs), int64(fs.state.Bytes)
+		// Guard against double accounting if called twice.
+		fs.state.Msgs, fs.state.Bytes = 0, 0
+		fs.mu.Unlock()
+		if msgs > 0 && cb != nil {
+			cb(-msgs, -bytes, 0, _EMPTY_)
+		}
 		return ErrStoreClosed
 	}
 	fs.Purge()
