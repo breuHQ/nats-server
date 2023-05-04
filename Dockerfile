@@ -25,6 +25,9 @@
 # ENTRYPOINT ["/bin/nats-server"]
 # CMD ["-c", "/nats/conf/nats-server.conf"]
 
+# ARG enable_jetstream="-js"
+# ARG cluster_name="nozl"
+
 FROM golang:1.18-bullseye as base
 
 WORKDIR /app
@@ -37,5 +40,5 @@ FROM alpine:3.16
 WORKDIR /app
 COPY --from=base /app/main /app/main
 EXPOSE 1323
-ENTRYPOINT [ "/bin/sh", "-c", "/app/main" ]
+ENTRYPOINT [ "/bin/sh", "-c", "/app/main"]
 # This is just to test workflows
