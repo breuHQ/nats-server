@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  nats-io:
+    container_name: nats-io
+    image: nats:2.8.4
+    ports:
+      - "4222:4222"
+    command: --cluster_name nozl -js # -js flag is for enabling JetSteam session
+    networks:
+      - nozl-net
+  # nozl:
+  #   container_name: nozl
+  #   image: nozl:latest-2
+  #   ports:
+  #     - "1323:1323"
+  #   networks:
+  #     - nozl-net
+  #   depends_on:
+  #     - nats-io
+  #   environment:
+  #     NATS_SERVER_URL: "nats://nats-io:4222"
+
+  nozl-api:
+    container_name: nozl-api
+    image: cosmtrek/air:v1.42.0
+    ports:
+      - "1323:1323"
+    environment:
+      NATS_SERVER_URL: "nats://nats-io:4222"
+      JWT_SECRET: "JaNdRgUkXp2s5v8y/B?E(G+KbPeShVmY"
+    volumes:
+      - ./:/api
+      - ./deploy/air/nozl.toml:/api/.air.toml
+      - api-go-pkg-mod:/go/pkg/mod
+      - api-build-cache:/root/.cache/go-build
+    working_dir: /api
+    depends_on:
+      - nats-io
+    networks:
+      - nozl-net
+networks:
+  nozl-net: {}
+
+volumes:
+  api-go-pkg-mod: {}
+  api-build-cache: {}

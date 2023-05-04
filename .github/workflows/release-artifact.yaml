@@ -2,7 +2,7 @@ name: release-nozl-build
 on:
   push:
     branches:
-      - dev
+      - nozl-dev
       - main
 
 jobs:
