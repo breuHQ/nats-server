@@ -9,7 +9,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/getkin/kin-openapi/routers"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
@@ -36,48 +35,34 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 		return err
 	}
 
-	var schemaList map[string]Schema
-	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
-	entry, err := schemaKv.Get(serviceID)
-
-	if err != nil {
-		schemaList = make(map[string]Schema)
-	} else {
-		err := json.Unmarshal(entry.Value(), &schemaList)
-		if err != nil {
-			return err
-		}
-	}
-
 	for pathKey, pathValue := range doc.Paths {
 
 		if pathValue.Get != nil {
-			schemaList[pathValue.Get.OperationID] = addSchema(pathKey, "get", pathValue.Get)
+			AddSchemaToKVStore(serviceID, pathKey, "get", pathValue.Get)
 		}
 		if pathValue.Post != nil {
-			schemaList[pathValue.Post.OperationID] = addSchema(pathKey, "post", pathValue.Post)
+			AddSchemaToKVStore(serviceID, pathKey, "post", pathValue.Post)
 		}
 		if pathValue.Put != nil {
-			schemaList[pathValue.Put.OperationID] = addSchema(pathKey, "put", pathValue.Put)
+			AddSchemaToKVStore(serviceID, pathKey, "put", pathValue.Put)
 		}
 		if pathValue.Patch != nil {
-			schemaList[pathValue.Patch.OperationID] = addSchema(pathKey, "patch", pathValue.Patch)
+			AddSchemaToKVStore(serviceID, pathKey, "patch", pathValue.Patch)
 		}
 		if pathValue.Delete != nil {
-			schemaList[pathValue.Delete.OperationID] = addSchema(pathKey, "delete", pathValue.Delete)
+			AddSchemaToKVStore(serviceID, pathKey, "delete", pathValue.Delete)
 		}
-	}
-
-	jsonPayload, _ := json.Marshal(schemaList)
-
-	_, err = schemaKv.Put(serviceID, jsonPayload)
-
-	if err != nil {
-		shared.Logger.Error("Failed to save schema in data store.")
-		return err
 	}
 
 	return nil
+}
+
+func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation) {
+	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	currSchema := addSchema(pathKey, "httpMethod", operation)
+	operationID := operation.OperationID
+	jsonPayload, _ := json.Marshal(currSchema)
+	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
 }
 
 func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
@@ -102,12 +87,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	}
 
 	input := &openapi3filter.RequestValidationInput{
-		Request:      httpReq,
-		PathParams:   map[string]string{},
-		QueryParams:  map[string][]string{},
-		Route:        &routers.Route{},
-		Options:      &openapi3filter.Options{},
-		ParamDecoder: func(param *openapi3.Parameter, values []string) (interface{}, *openapi3.Schema, error) {},
+		Request: httpReq,
 	}
 
 	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
