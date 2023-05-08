@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -59,8 +58,34 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	return nil
 }
 
+func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
+	if operation.RequestBody != nil {
+		ReqBodySchema := operation.RequestBody.Value.Content["application/x-www-form-urlencoded"].Schema.Value
+		RequiredParams := ReqBodySchema.Required
+		ReqBodyParams := ReqBodySchema.Properties
+
+		for key, val := range ReqBodyParams {
+			if stringInSlice(key, RequiredParams) == false {
+				val.Value.Nullable = true
+			}
+		}
+	}
+
+	return nil
+}
+
+func stringInSlice(refStr string, list []string) bool {
+	for _, currStr := range list {
+		if currStr == refStr {
+			return true
+		}
+	}
+	return false
+}
+
 func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	MakeOptionalFieldsNullable(operation)
 	currSchema := addSchema(pathKey, httpMethod, operation)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
@@ -85,12 +110,12 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	baseUrl := "https://api.twilio.com"
 	rgx, _ := regexp.Compile("{AccountSid}")
 	ep := rgx.ReplaceAllString(schemaValid.Path, "AC9f560ea30baaaf8013e4e44284eb6768")
-	data := url.Values{}
+	//data := url.Values{}
 
-	data.Add("To", "+923244253153")
-	data.Add("Body", "helloworld")
-	// payload := strings.NewReader("Body=Hello%20World!&To=%2B923244253153&AddressRetention=retain")
-	payload := strings.NewReader(data.Encode())
+	//data.Add("To", +923244253153)
+	//data.Add("Body", "helloworld")
+	payload := strings.NewReader("Body=Hello%20World!&To=%2B923214930471&From=%2B19034598701&edfgsgd=sdfds")
+	//payload := strings.NewReader(data.Encode())
 
 	httpReq, err := http.NewRequest("POST", baseUrl+ep, payload)
 	headers := make(map[string]string)
