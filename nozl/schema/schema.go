@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -59,7 +61,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
-	currSchema := addSchema(pathKey, "httpMethod", operation)
+	currSchema := addSchema(pathKey, httpMethod, operation)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
 	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
@@ -71,15 +73,26 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 		shared.Logger.Error(err.Error())
 		return false, err
 	}
+	openapi3.SchemaErrorDetailsDisabled = true
+
 	msgBody := msg.Body
 	fmt.Println(schemaValid)
 	fmt.Println(msgBody)
 
 	ctx := context.Background()
-	jsonData, _ := json.Marshal(&msgBody)
-	formData := strings.NewReader(string(jsonData))
+	//jsonData, _ := json.Marshal(&msgBody)
+	//formData := strings.NewReader(string(jsonData))
+	baseUrl := "https://api.twilio.com"
+	rgx, _ := regexp.Compile("{AccountSid}")
+	ep := rgx.ReplaceAllString(schemaValid.Path, "AC9f560ea30baaaf8013e4e44284eb6768")
+	data := url.Values{}
 
-	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
+	data.Add("To", "+923244253153")
+	data.Add("Body", "helloworld")
+	// payload := strings.NewReader("Body=Hello%20World!&To=%2B923244253153&AddressRetention=retain")
+	payload := strings.NewReader(data.Encode())
+
+	httpReq, err := http.NewRequest("POST", baseUrl+ep, payload)
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/x-www-form-urlencoded" //schemaValid.PathDetails.RequestBody.Value.Content
 	for key, val := range headers {
@@ -95,25 +108,25 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	return false, nil
 }
 
-func GetMsgRefSchema(msg *eventstream.Message) (Schema, error) {
+func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
 	schemaKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return Schema{}, err
+		return nil, err
 	}
 
-	entry, err := schemaKv.Get(msg.ServiceID)
+	entry, err := schemaKv.Get(fmt.Sprintf("%s-%s", msg.ServiceID, msg.OperationID))
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return Schema{}, err
+		return nil, err
 	}
 
-	var schemaList map[string]Schema
-	err = json.Unmarshal(entry.Value(), &schemaList)
+	var schemaCurr *Schema
+	err = json.Unmarshal(entry.Value(), &schemaCurr)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return Schema{}, err
+		return nil, err
 	}
 
-	return schemaList[msg.OperationID], nil
+	return schemaCurr, nil
 }
