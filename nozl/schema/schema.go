@@ -106,15 +106,6 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	ctx := context.Background()
 	jsonData, _ := json.Marshal(&msgBody)
 	formData := strings.NewReader(string(jsonData))
-	//baseUrl := "https://api.twilio.com"
-	//rgx, _ := regexp.Compile("{AccountSid}")
-	//ep := rgx.ReplaceAllString(schemaValid.Path, "AC9f560ea30baaaf8013e4e44284eb6768")
-	//data := url.Values{}
-
-	//data.Add("To", +923244253153)
-	//data.Add("Body", "helloworld")
-	//payload := strings.NewReader("Body=Hello%20World!&To=%2B923214930471&From=%2B19034598701&edfgsgd=sdfds")
-	//payload := strings.NewReader(data.Encode())
 
 	httpReq, err := http.NewRequest("POST", schemaValid.Path, formData)
 	headers := make(map[string]string)
