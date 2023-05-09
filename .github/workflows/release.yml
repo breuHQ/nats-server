@@ -60,6 +60,7 @@ jobs:
       - name: Tag Docker image and push to Google Artifact Registry
         shell: bash
         run: |
+          docker tag nozl-api:${{ steps.vars.outputs.short_sha }} europe-west3-docker.pkg.dev/nozl-default/nozl-dev-docker-22b822f6/nozl-api:latest
           docker tag nozl-api:${{ steps.vars.outputs.short_sha }} europe-west3-docker.pkg.dev/nozl-default/nozl-dev-docker-22b822f6/nozl-api:${{ steps.vars.outputs.short_sha }}
 
           docker push europe-west3-docker.pkg.dev/nozl-default/nozl-dev-docker-22b822f6/nozl-api:${{ steps.vars.outputs.short_sha }}
