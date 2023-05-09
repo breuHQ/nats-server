@@ -7,7 +7,7 @@ on:
 
 jobs:
   nightly_coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     env:
       GOPATH: /home/runner/work/nats-server
@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         with:
           path: src/github.com/nats-io/nats-server
           ref: dev
