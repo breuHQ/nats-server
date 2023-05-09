@@ -38,19 +38,19 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 	for pathKey, pathValue := range doc.Paths {
 
 		if pathValue.Get != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "get", pathValue.Get)
+			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get)
 		}
 		if pathValue.Post != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "post", pathValue.Post)
+			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post)
 		}
 		if pathValue.Put != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "put", pathValue.Put)
+			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put)
 		}
 		if pathValue.Patch != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "patch", pathValue.Patch)
+			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch)
 		}
 		if pathValue.Delete != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "delete", pathValue.Delete)
+			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete)
 		}
 	}
 
@@ -107,7 +107,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	jsonData, _ := json.Marshal(&msgBody)
 	formData := strings.NewReader(string(jsonData))
 
-	httpReq, err := http.NewRequest("POST", schemaValid.Path, formData)
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/x-www-form-urlencoded"
 	for key, val := range headers {
