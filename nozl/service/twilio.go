@@ -28,3 +28,7 @@ func (s *Service) SendMsgTwilio(msg *eventstream.Message) error {
 
 	return nil
 }
+
+func (s *Service) SendMsgTwilioAPI(msg *eventstream.Message) error {
+	return nil
+}
