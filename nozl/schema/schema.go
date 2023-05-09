@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -98,15 +99,16 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		shared.Logger.Error(err.Error())
 		return err
 	}
-	openapi3.SchemaErrorDetailsDisabled = true
 
-	msgBody := msg.ReqBody
+	formValues := url.Values{}
+	for key, val := range msg.ReqBody {
+		formValues.Set(key, val.(string))
+	}
 
-	ctx := context.Background()
-	jsonData, _ := json.Marshal(&msgBody)
-	formData := strings.NewReader(string(jsonData))
+	formData := formValues.Encode()
+	payload := strings.NewReader(formData)
 
-	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
 	headers := make(map[string]string)
 	// TODO: Header should be dynamically set
 	headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -118,6 +120,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		Request: httpReq,
 	}
 
+	ctx := context.Background()
 	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
 	return err
