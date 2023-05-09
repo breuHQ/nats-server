@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -100,18 +101,14 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		return err
 	}
 
-	formValues := url.Values{}
-	for key, val := range msg.ReqBody {
-		formValues.Set(key, val.(string))
+	headers := make(map[string]string)
+	for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
+		headers["Content-Type"] = key
 	}
 
-	formData := formValues.Encode()
-	payload := strings.NewReader(formData)
-
+	payload := GetPayloadFromMsg(msg, headers["Content-Type"])
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
-	headers := make(map[string]string)
-	// TODO: Header should be dynamically set
-	headers["Content-Type"] = "application/x-www-form-urlencoded"
+
 	for key, val := range headers {
 		httpReq.Header.Add(key, val)
 	}
@@ -124,6 +121,17 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
 	return err
+}
+
+func GetPayloadFromMsg(msg *eventstream.Message, contentType string) io.Reader {
+	formValues := url.Values{}
+	for key, val := range msg.ReqBody {
+		formValues.Set(key, val.(string))
+	}
+
+	formData := formValues.Encode()
+	payload := strings.NewReader(formData)
+	return payload
 }
 
 func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
