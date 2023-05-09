@@ -59,6 +59,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 	if operation.RequestBody != nil {
+		// TODO: This needs to be undated to also handle other headers
 		ReqBodySchema := operation.RequestBody.Value.Content["application/x-www-form-urlencoded"].Schema.Value
 		RequiredParams := ReqBodySchema.Required
 		ReqBodyParams := ReqBodySchema.Properties
@@ -109,6 +110,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
 	headers := make(map[string]string)
+	// TODO: Header should be dynamically set
 	headers["Content-Type"] = "application/x-www-form-urlencoded"
 	for key, val := range headers {
 		httpReq.Header.Add(key, val)
