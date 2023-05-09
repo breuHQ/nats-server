@@ -14,9 +14,9 @@ func (s *Service) SendMsgTwilio(msg *eventstream.Message) error {
 	})
 
 	params := &twilioApi.CreateMessageParams{}
-	params.SetBody(msg.Body.Payload)
+	params.SetBody(msg.ReqBody.Payload)
 	params.SetFrom(shared.SenderPhoneNumber)
-	params.SetTo(msg.Body.Destination)
+	params.SetTo(msg.ReqBody.Destination)
 
 	resp, err := client.Api.CreateMessage(params)
 	if err != nil {

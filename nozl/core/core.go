@@ -121,13 +121,13 @@ func (c *core) Send(msg *eventstream.Message) {
 
 // TODO: Get limiter values from API.
 func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
-	if val, exists := c.Filters[msg.Body.UserID]; exists {
+	if val, exists := c.Filters[msg.ReqBody.UserID]; exists {
 		return val.Allow()
 	}
 
-	c.RegisterFilter(msg.Body.UserID, shared.UserTokenRate, shared.UserBucketSize)
+	c.RegisterFilter(msg.ReqBody.UserID, shared.UserTokenRate, shared.UserBucketSize)
 
-	return c.Filters[msg.Body.UserID].Allow()
+	return c.Filters[msg.ReqBody.UserID].Allow()
 }
 
 func (c *core) RegisterFilter(userID string, tokenRate int, bucketSize int) uuid.UUID {

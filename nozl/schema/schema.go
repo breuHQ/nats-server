@@ -100,7 +100,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	}
 	openapi3.SchemaErrorDetailsDisabled = true
 
-	msgBody := msg.Body
+	msgBody := msg.ReqBody
 	fmt.Println(schemaValid)
 	fmt.Println(msgBody)
 

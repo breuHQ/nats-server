@@ -14,7 +14,7 @@ type (
 		TenantID    string `json:"tenant_id"`
 		CreatedAt   string `json:"created_at"`
 		SentAt      string `json:"sent_at"`
-		Body        Body   `json:"body"`
+		ReqBody     Body   `json:"req_body"`
 	}
 
 	Body struct {
@@ -29,7 +29,7 @@ func NewMessage(serviceID string, operationID string, body Body) *Message {
 		ID:          uuid.New().String(),
 		ServiceID:   serviceID,
 		OperationID: operationID,
-		Body:        body,
+		ReqBody:     body,
 		CreatedAt:   time.Now().Format("2006-01-02 15:04:05"),
 	}
 }
