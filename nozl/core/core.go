@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/filter"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
+	"github.com/nats-io/nats-server/v2/nozl/schema"
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 	"github.com/nats-io/nats-server/v2/nozl/tenant"
@@ -86,7 +87,7 @@ func (c *core) Init() {
 	c.initKVStore(shared.MsgWaitListKV, "")
 	c.initKVStore(shared.MsgLogKV, "")
 	c.initKVStore(shared.TenantAPIKV, "")
-	c.initKVStore(shared.SchemaKv, "")
+	c.initKVStore(shared.SchemaKV, "")
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string) {
@@ -165,6 +166,12 @@ func handleLimiter(c *core) nats.Handler {
 
 func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
+		err := schema.ValidateOpenAPIV3Schema(msg)
+		if err != nil {
+			// TODO: Return error to sender and break function here. Decide later
+			// if this message should be sent to dead letter queue
+			shared.Logger.Error(err.Error())
+		}
 		if c.filterLimiterAllow(msg) {
 			shared.Logger.Info(msg.ID,
 				zap.String("Subject", "Filter"),
