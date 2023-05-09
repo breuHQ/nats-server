@@ -22,8 +22,8 @@ dockers:
     build_flag_templates:
       - '--build-arg=VERSION=nightly-{{ time "20060102" }}'
     image_templates:
-      - synadia/nats-server:{{.Version}}
-      - synadia/nats-server:nightly
+      - nozl-api:{{.Version}}
+      - nozl-api:nightly
     extra_files:
       - docker/nats-server.conf
 
@@ -32,4 +32,4 @@ checksum:
   algorithm: sha256
 
 snapshot:
-  name_template: 'nightly-{{ time "20060102" }}'
+  name_template: '{{.ShortCommit}}-{{ time "20060102" }}'
