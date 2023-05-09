@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -92,11 +91,11 @@ func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, ope
 	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
 }
 
-func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
+func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	schemaValid, err := GetMsgRefSchema(msg)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return false, err
+		return err
 	}
 	openapi3.SchemaErrorDetailsDisabled = true
 
@@ -105,21 +104,21 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 	fmt.Println(msgBody)
 
 	ctx := context.Background()
-	//jsonData, _ := json.Marshal(&msgBody)
-	//formData := strings.NewReader(string(jsonData))
-	baseUrl := "https://api.twilio.com"
-	rgx, _ := regexp.Compile("{AccountSid}")
-	ep := rgx.ReplaceAllString(schemaValid.Path, "AC9f560ea30baaaf8013e4e44284eb6768")
+	jsonData, _ := json.Marshal(&msgBody)
+	formData := strings.NewReader(string(jsonData))
+	//baseUrl := "https://api.twilio.com"
+	//rgx, _ := regexp.Compile("{AccountSid}")
+	//ep := rgx.ReplaceAllString(schemaValid.Path, "AC9f560ea30baaaf8013e4e44284eb6768")
 	//data := url.Values{}
 
 	//data.Add("To", +923244253153)
 	//data.Add("Body", "helloworld")
-	payload := strings.NewReader("Body=Hello%20World!&To=%2B923214930471&From=%2B19034598701&edfgsgd=sdfds")
+	//payload := strings.NewReader("Body=Hello%20World!&To=%2B923214930471&From=%2B19034598701&edfgsgd=sdfds")
 	//payload := strings.NewReader(data.Encode())
 
-	httpReq, err := http.NewRequest("POST", baseUrl+ep, payload)
+	httpReq, err := http.NewRequest("POST", schemaValid.Path, formData)
 	headers := make(map[string]string)
-	headers["Content-Type"] = "application/x-www-form-urlencoded" //schemaValid.PathDetails.RequestBody.Value.Content
+	headers["Content-Type"] = "application/x-www-form-urlencoded"
 	for key, val := range headers {
 		httpReq.Header.Add(key, val)
 	}
@@ -130,7 +129,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) (bool, error) {
 
 	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
-	return false, nil
+	return err
 }
 
 func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {

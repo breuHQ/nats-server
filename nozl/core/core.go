@@ -166,7 +166,7 @@ func handleLimiter(c *core) nats.Handler {
 
 func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
-		_, err := schema.ValidateOpenAPIV3Schema(msg)
+		err := schema.ValidateOpenAPIV3Schema(msg)
 		if err != nil {
 			shared.Logger.Error(err.Error())
 		}
