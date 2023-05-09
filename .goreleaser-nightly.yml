@@ -32,4 +32,5 @@ checksum:
   algorithm: sha256
 
 snapshot:
-  name_template: '{{.ShortCommit}}-{{ time "20060102" }}'
+  # name_template: '{{.ShortCommit}}-{{ time "20060102" }}'
+  name_template: '{{.ShortCommit}}'
