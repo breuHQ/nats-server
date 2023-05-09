@@ -11,8 +11,8 @@ import (
 )
 
 func SendMessageHandler(ctx echo.Context) error {
-	var body Body
-	msg := NewMessage("", "", body)
+	var reqBody ReqBody
+	msg := NewMessage("", "", reqBody)
 
 	if err := ctx.Bind(&msg); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
@@ -29,7 +29,7 @@ func SendMessageHandler(ctx echo.Context) error {
 
 	Eventstream.PublishEncodedMessage("Filter", msg)
 
-	msgStatus := <- MessageStatus
+	msgStatus := <-MessageStatus
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": msgStatus,

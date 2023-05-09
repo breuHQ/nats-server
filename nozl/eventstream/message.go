@@ -7,14 +7,16 @@ import (
 )
 
 type (
+	ReqBody map[string]interface{}
+
 	Message struct {
-		ID          string `json:"id"`
-		ServiceID   string `json:"service_id"`
-		OperationID string `json:"operation_id"`
-		TenantID    string `json:"tenant_id"`
-		CreatedAt   string `json:"created_at"`
-		SentAt      string `json:"sent_at"`
-		ReqBody     Body   `json:"req_body"`
+		ID          string  `json:"id"`
+		ServiceID   string  `json:"service_id"`
+		OperationID string  `json:"operation_id"`
+		TenantID    string  `json:"tenant_id"`
+		CreatedAt   string  `json:"created_at"`
+		SentAt      string  `json:"sent_at"`
+		ReqBody     ReqBody `json:"req_body"`
 	}
 
 	Body struct {
@@ -24,7 +26,7 @@ type (
 	}
 )
 
-func NewMessage(serviceID string, operationID string, body Body) *Message {
+func NewMessage(serviceID string, operationID string, body ReqBody) *Message {
 	return &Message{
 		ID:          uuid.New().String(),
 		ServiceID:   serviceID,
