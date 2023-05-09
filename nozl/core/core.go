@@ -168,6 +168,8 @@ func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
 		err := schema.ValidateOpenAPIV3Schema(msg)
 		if err != nil {
+			// TODO: Return error to sender and break function here. Decide later
+			// if this message should be sent to dead letter queue
 			shared.Logger.Error(err.Error())
 		}
 		if c.filterLimiterAllow(msg) {
