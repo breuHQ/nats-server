@@ -4,8 +4,7 @@ on:
     branches:
       - nozl-dev
       - main
-
-  workflow_dispatch:
+      - feature/sc-2919/update-nats-server-s-dockerfile-and-github
 
 jobs:
   release-artifact:
