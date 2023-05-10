@@ -67,12 +67,18 @@ func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 		ReqBodyParams := ReqBodySchema.Properties
 
 		for key, val := range ReqBodyParams {
+			MakeRefsEmpty(val) // This is being done because when marshalling SchemaRef, it only marshals field "Ref"
 			if stringInSlice(key, RequiredParams) == false {
 				val.Value.Nullable = true
 			}
 		}
 	}
 
+	return nil
+}
+
+func MakeRefsEmpty(schemaRef *openapi3.SchemaRef) error {
+	schemaRef.Ref = ""
 	return nil
 }
 
