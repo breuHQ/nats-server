@@ -61,8 +61,12 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 	if operation.RequestBody != nil {
-		// TODO: This needs to be undated to also handle other headers
-		ReqBodySchema := operation.RequestBody.Value.Content["application/x-www-form-urlencoded"].Schema.Value
+		var contentType string
+		for key, _ := range operation.RequestBody.Value.Content {
+			contentType = key
+		}
+
+		ReqBodySchema := operation.RequestBody.Value.Content[contentType].Schema.Value
 		RequiredParams := ReqBodySchema.Required
 		ReqBodyParams := ReqBodySchema.Properties
 
