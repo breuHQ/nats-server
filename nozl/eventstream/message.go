@@ -18,12 +18,6 @@ type (
 		SentAt      string  `json:"sent_at"`
 		ReqBody     ReqBody `json:"req_body"`
 	}
-
-	Body struct {
-		UserID      string `json:"user_id"`
-		Payload     string `json:"payload"`
-		Destination string `json:"destination"`
-	}
 )
 
 func NewMessage(serviceID string, operationID string, body ReqBody) *Message {
@@ -33,13 +27,5 @@ func NewMessage(serviceID string, operationID string, body ReqBody) *Message {
 		OperationID: operationID,
 		ReqBody:     body,
 		CreatedAt:   time.Now().Format("2006-01-02 15:04:05"),
-	}
-}
-
-func NewBody(userID string, payload string, dest string) *Body {
-	return &Body{
-		UserID:      userID,
-		Payload:     payload,
-		Destination: dest,
 	}
 }
