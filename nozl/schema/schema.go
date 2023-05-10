@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -59,18 +61,28 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 
 func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 	if operation.RequestBody != nil {
-		// TODO: This needs to be undated to also handle other headers
-		ReqBodySchema := operation.RequestBody.Value.Content["application/x-www-form-urlencoded"].Schema.Value
+		var contentType string
+		for key, _ := range operation.RequestBody.Value.Content {
+			contentType = key
+		}
+
+		ReqBodySchema := operation.RequestBody.Value.Content[contentType].Schema.Value
 		RequiredParams := ReqBodySchema.Required
 		ReqBodyParams := ReqBodySchema.Properties
 
 		for key, val := range ReqBodyParams {
+			MakeRefsEmpty(val) // This is being done because when marshalling SchemaRef, it only marshals field "Ref"
 			if stringInSlice(key, RequiredParams) == false {
 				val.Value.Nullable = true
 			}
 		}
 	}
 
+	return nil
+}
+
+func MakeRefsEmpty(schemaRef *openapi3.SchemaRef) error {
+	schemaRef.Ref = ""
 	return nil
 }
 
@@ -98,20 +110,15 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		shared.Logger.Error(err.Error())
 		return err
 	}
-	openapi3.SchemaErrorDetailsDisabled = true
 
-	msgBody := msg.Body
-	fmt.Println(schemaValid)
-	fmt.Println(msgBody)
-
-	ctx := context.Background()
-	jsonData, _ := json.Marshal(&msgBody)
-	formData := strings.NewReader(string(jsonData))
-
-	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, formData)
 	headers := make(map[string]string)
-	// TODO: Header should be dynamically set
-	headers["Content-Type"] = "application/x-www-form-urlencoded"
+	for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
+		headers["Content-Type"] = key
+	}
+
+	payload := GetPayloadFromMsg(msg, headers["Content-Type"])
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
+
 	for key, val := range headers {
 		httpReq.Header.Add(key, val)
 	}
@@ -120,9 +127,21 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		Request: httpReq,
 	}
 
+	ctx := context.Background()
 	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
 	return err
+}
+
+func GetPayloadFromMsg(msg *eventstream.Message, contentType string) io.Reader {
+	formValues := url.Values{}
+	for key, val := range msg.ReqBody {
+		formValues.Set(key, val.(string))
+	}
+
+	formData := formValues.Encode()
+	payload := strings.NewReader(formData)
+	return payload
 }
 
 func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
