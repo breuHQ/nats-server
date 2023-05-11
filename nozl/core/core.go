@@ -18,6 +18,7 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 	"github.com/nats-io/nats-server/v2/nozl/tenant"
+	// "github.com/nats-io/nats-server/v2/nozl/testutils"
 )
 
 type (
@@ -210,9 +211,8 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 		return err
 	}
 
-	if err := serv.SendMsgTwilio(msg); err != nil {
-		return err
-	}
+	t := service.Twilio{}
+	t.GenericHTTPRequest(serv, msg)
 
 	err = c.LogSentMessage(msg)
 
