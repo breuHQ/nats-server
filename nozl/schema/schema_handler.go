@@ -44,3 +44,28 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		"message": "Open API file parsed successfully",
 	})
 }
+
+// func DeleteOpenApiV3Schema(serviceID string) error {
+
+
+// 	return nil
+// }
+
+// func DeleteOpenApiSpecHandler(ctx echo.Context) error {
+// 	serviceID := ctx.QueryParam("service_id")
+// 	if serviceID == "" {
+// 		return ctx.JSON(http.StatusBadRequest, echo.Map{
+// 			"message": "service_id is required",
+// 		})
+// 	}
+
+// 	if err := DeleteOpenApiV3Schema(serviceID); err != nil {
+// 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+// 			"message": "Error in deleting file",
+// 		})
+// 	}
+
+// 	return ctx.JSON(http.StatusOK, echo.Map{
+// 		"message": "Open API file deleted successfully",
+// 	})
+// }
