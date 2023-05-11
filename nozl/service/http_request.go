@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -35,12 +36,17 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]b
 
 	headers := make(map[string]string)
 	headers["Authorization"] = "Basic " + authKey
+	var payload io.Reader
 
-	for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
-		headers["Content-Type"] = key
+	if schemaValid.PathDetails.RequestBody != nil {
+		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
+			headers["Content-Type"] = key
+		}
+		payload = schema.GetPayloadFromMsg(msg, headers["Content-Type"])
+	} else {
+		payload = bytes.NewBuffer([]byte{})
 	}
 
-	payload := schema.GetPayloadFromMsg(msg, headers["Content-Type"])
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, ep, payload)
 
 	for key, val := range headers {

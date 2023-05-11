@@ -111,26 +111,30 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		return err
 	}
 
-	headers := make(map[string]string)
-	for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
-		headers["Content-Type"] = key
+	if schemaValid.HttpMethod != "GET" && schemaValid.HttpMethod != "DELETE" {
+		headers := make(map[string]string)
+		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
+			headers["Content-Type"] = key
+		}
+
+		payload := GetPayloadFromMsg(msg, headers["Content-Type"])
+		httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
+
+		for key, val := range headers {
+			httpReq.Header.Add(key, val)
+		}
+
+		input := &openapi3filter.RequestValidationInput{
+			Request: httpReq,
+		}
+
+		ctx := context.Background()
+		err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
+
+		return err
 	}
 
-	payload := GetPayloadFromMsg(msg, headers["Content-Type"])
-	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
-
-	for key, val := range headers {
-		httpReq.Header.Add(key, val)
-	}
-
-	input := &openapi3filter.RequestValidationInput{
-		Request: httpReq,
-	}
-
-	ctx := context.Background()
-	err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
-
-	return err
+	return nil
 }
 
 func GetPayloadFromMsg(msg *eventstream.Message, contentType string) io.Reader {
