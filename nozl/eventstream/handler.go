@@ -30,9 +30,15 @@ func SendMessageHandler(ctx echo.Context) error {
 	Eventstream.PublishEncodedMessage("Filter", msg)
 
 	msgStatus := <-MessageStatus
+	serviceResponse := <-ServiceResponse
+
+	var js map[string]interface{}
+
+	_ = json.Unmarshal(serviceResponse, &js)
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": msgStatus,
+		"response_body": js,
 	})
 }
 

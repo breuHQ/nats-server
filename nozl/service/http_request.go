@@ -13,24 +13,25 @@ import (
 )
 
 type HTTPClient interface {
-	GenericHTTPRequest(svc *Service, msg *eventstream.Message)
+	GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error)
 }
 
 type Twilio struct {}
 
-func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) {
+func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
 	sid := svc.AccountSID
 	authToken := svc.AuthToken
 	authKey := t.basicAuth(sid, authToken)
 	rgx := regexp.MustCompile("{AccountSid}")
 
 	schemaValid, err := schema.GetMsgRefSchema(msg)
-	updatedPath := rgx.ReplaceAllString(schemaValid.Path, sid)
-	ep := "https://api.twilio.com" + updatedPath
 
 	if err != nil {
 		shared.Logger.Error(err.Error())
 	}
+
+	updatedPath := rgx.ReplaceAllString(schemaValid.Path, sid)
+	ep := "https://api.twilio.com" + updatedPath
 
 	headers := make(map[string]string)
 	headers["Authorization"] = "Basic " + authKey
@@ -51,7 +52,6 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) {
 	response, err := client.Do(httpReq)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		
 	}
 
 	defer response.Body.Close()
@@ -61,7 +61,6 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) {
 		shared.Logger.Error(err.Error())
 	}
 
-
 	var js map[string]string
 
 	if err := json.Unmarshal(respBody, &js); err != nil {
@@ -70,6 +69,15 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) {
 
 	shared.Logger.Info(response.Status)
 	shared.Logger.Info(string(respBody))
+
+	serviceResponse := make(map[string]interface{})
+	serviceResponse["status"] = response.Status
+
+	for key, val := range js {
+		serviceResponse[key] = val
+	}
+
+	return json.Marshal(serviceResponse)
 }
 
 func (t *Twilio) basicAuth(username, password string) string {

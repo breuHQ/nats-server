@@ -212,7 +212,13 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 	}
 
 	t := service.Twilio{}
-	t.GenericHTTPRequest(serv, msg)
+	result, err := t.GenericHTTPRequest(serv, msg)
+
+	if err != nil {
+		return err
+	}
+
+	eventstream.ServiceResponse <- result
 
 	err = c.LogSentMessage(msg)
 
