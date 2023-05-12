@@ -67,7 +67,7 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]b
 		shared.Logger.Error(err.Error())
 	}
 
-	var js map[string]string
+	var js map[string]interface{}
 
 	if err := json.Unmarshal(respBody, &js); err != nil {
 		shared.Logger.Error(err.Error())
