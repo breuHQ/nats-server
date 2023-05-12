@@ -39,14 +39,15 @@ func SendMessageHandler(ctx echo.Context) error {
 		_ = json.Unmarshal(serviceResponse, &js)
 
 		return ctx.JSON(http.StatusOK, echo.Map{
-			"message_filter_allow": msgFilterAllow,
-			"response_body":        js,
+			"message_id":    msg.ID,
+			"filter_status": msgFilterAllow,
+			"response_body": js,
 		})
 	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message_id":           msg.ID,
-		"message_filter_allow": msgFilterAllow,
+		"message_id":    msg.ID,
+		"filter_status": msgFilterAllow,
 	})
 }
 
