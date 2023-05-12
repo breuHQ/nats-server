@@ -17,7 +17,7 @@ type HTTPClient interface {
 	GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error)
 }
 
-type Twilio struct {}
+type Twilio struct{}
 
 func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
 	sid := svc.AccountSID
@@ -32,7 +32,7 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]b
 	}
 
 	updatedPath := rgx.ReplaceAllString(schemaValid.Path, sid)
-	ep := "https://api.twilio.com" + updatedPath
+	ep := schemaValid.BaseUrl + updatedPath
 
 	headers := make(map[string]string)
 	headers["Authorization"] = "Basic " + authKey
