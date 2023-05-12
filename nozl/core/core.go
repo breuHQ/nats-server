@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -180,7 +179,7 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Allowed"),
 			)
 			eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
-			eventstream.MessageStatus <- fmt.Sprintf("message with ID %s allowed by filter limiter", msg.ID)
+			eventstream.MessageFilterAllow <- true
 		} else {
 			queuePayload, _ := json.Marshal(msg)
 
@@ -198,7 +197,7 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Rejected"),
 			)
 
-			eventstream.MessageStatus <- fmt.Sprintf("message with ID %s rejected by filter limiter", msg.ID)
+			eventstream.MessageFilterAllow <- false
 		}
 	}
 }

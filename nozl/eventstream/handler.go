@@ -29,16 +29,23 @@ func SendMessageHandler(ctx echo.Context) error {
 
 	Eventstream.PublishEncodedMessage("Filter", msg)
 
-	msgStatus := <-MessageStatus
-	serviceResponse := <-ServiceResponse
+	msgFilterAllow := <-MessageFilterAllow
+	if msgFilterAllow == true {
+		serviceResponse := <-ServiceResponse
 
-	var js map[string]interface{}
+		var js map[string]interface{}
 
-	_ = json.Unmarshal(serviceResponse, &js)
+		_ = json.Unmarshal(serviceResponse, &js)
+
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message_filter_allow": msgFilterAllow,
+			"response_body":        js,
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": msgStatus,
-		"response_body": js,
+		"message_id":           msg.ID,
+		"message_filter_allow": msgFilterAllow,
 	})
 }
 
