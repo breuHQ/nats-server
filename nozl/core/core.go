@@ -171,7 +171,12 @@ func handleFilter(c *core) nats.Handler {
 		if err != nil {
 			// TODO: Return error to sender and break function here. Decide later
 			// if this message should be sent to dead letter queue
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				MessageFilterAllow: false,
+				Status:             string(err.Error()),
+			}
 			shared.Logger.Error(err.Error())
+			return
 		}
 		if c.filterLimiterAllow(msg) {
 			shared.Logger.Info(msg.ID,
@@ -179,7 +184,10 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Allowed"),
 			)
 			eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
-			eventstream.MessageFilterAllow <- true
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				MessageFilterAllow: true,
+				Status:             "ok",
+			}
 		} else {
 			queuePayload, _ := json.Marshal(msg)
 
@@ -197,7 +205,10 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Rejected"),
 			)
 
-			eventstream.MessageFilterAllow <- false
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				MessageFilterAllow: false,
+				Status:             "Rate Limit Exceeded",
+			}
 		}
 	}
 }

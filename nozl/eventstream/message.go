@@ -18,6 +18,11 @@ type (
 		SentAt      string  `json:"sent_at"`
 		ReqBody     ReqBody `json:"req_body"`
 	}
+
+	MessageFilterStatus struct {
+		MessageFilterAllow bool
+		Status             string
+	}
 )
 
 func NewMessage(serviceID string, operationID string, body ReqBody) *Message {

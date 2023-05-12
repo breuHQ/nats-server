@@ -22,7 +22,7 @@ type (
 
 var (
 	Eventstream        = &eventstream{}
-	MessageFilterAllow chan bool
+	MessageFilterAllow chan *MessageFilterStatus
 	ServiceResponse    chan []byte
 )
 
@@ -66,7 +66,7 @@ func (n *eventstream) InitializeNats() {
 		n.Conn = nc
 		n.EnCon = ec
 		n.Stream = js
-		MessageFilterAllow = make(chan bool)
+		MessageFilterAllow = make(chan *MessageFilterStatus)
 		ServiceResponse = make(chan []byte)
 
 		return nil

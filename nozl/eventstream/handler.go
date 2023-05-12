@@ -30,7 +30,8 @@ func SendMessageHandler(ctx echo.Context) error {
 	Eventstream.PublishEncodedMessage("Filter", msg)
 
 	msgFilterAllow := <-MessageFilterAllow
-	if msgFilterAllow == true {
+
+	if msgFilterAllow.MessageFilterAllow == true {
 		serviceResponse := <-ServiceResponse
 
 		var js map[string]interface{}
