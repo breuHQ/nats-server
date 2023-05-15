@@ -12,7 +12,9 @@ import (
 
 func SendMessageHandler(ctx echo.Context) error {
 	var reqBody ReqBody
-	msg := NewMessage("", "", reqBody)
+	var pathParams PathParams
+	var queryParams QueryParams
+	msg := NewMessage("", "", reqBody, pathParams, queryParams)
 
 	if err := ctx.Bind(&msg); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{

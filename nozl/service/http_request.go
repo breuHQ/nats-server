@@ -42,7 +42,7 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]b
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetPayloadFromMsg(msg, headers["Content-Type"])
+		payload = schema.GetPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
