@@ -14,7 +14,7 @@ type SchemaDetails struct {
 	FileID    string
 }
 
-func NewSchemaFile(serviceID string, fileName string) *SchemaDetails {
+func NewSchemaDetails(serviceID string, fileName string) *SchemaDetails {
 	return &SchemaDetails{
 		ServiceID: serviceID,
 		FileName:  fileName,
@@ -22,7 +22,7 @@ func NewSchemaFile(serviceID string, fileName string) *SchemaDetails {
 	}
 }
 
-func AddSchemaFileToKVStore(schemaFile *SchemaDetails) error {
+func AddSchemaDetailsToKVStoreHelper(schemaFile *SchemaDetails) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaDetailsKV)
 
 	if err != nil {
@@ -36,8 +36,8 @@ func AddSchemaFileToKVStore(schemaFile *SchemaDetails) error {
 }
 
 func AddSchemaDetailstoKVStore(serviceID string, fileName string) (*SchemaDetails, error) {
-	schemaDetails := NewSchemaFile(serviceID, fileName)
-	if err := AddSchemaFileToKVStore(schemaDetails); err != nil {
+	schemaDetails := NewSchemaDetails(serviceID, fileName)
+	if err := AddSchemaDetailsToKVStoreHelper(schemaDetails); err != nil {
 		shared.Logger.Error("Failed to add schemaDetails to KV store!")
 		return nil, err
 	}
