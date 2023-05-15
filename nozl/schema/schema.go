@@ -121,6 +121,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		}
 
 		payload := GetPayloadFromMsg(msg, headers["Content-Type"])
+		pathParams := GetPathParamsFromMsg(msg)
 		httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
 
 		for key, val := range headers {
@@ -128,16 +129,32 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		}
 
 		input := &openapi3filter.RequestValidationInput{
-			Request: httpReq,
+			Request:    httpReq,
+			PathParams: pathParams,
 		}
 
 		ctx := context.Background()
+		for _, param := range schemaValid.PathDetails.Parameters {
+			err = openapi3filter.ValidateParameter(ctx, input, param.Value)
+			if err != nil {
+				return err
+			}
+		}
+
 		err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
 
 		return err
 	}
 
 	return nil
+}
+
+func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {
+	pathParams := make(map[string]string)
+	for key, val := range msg.URLParams {
+		pathParams[key] = val.(string)
+	}
+	return pathParams
 }
 
 func GetPayloadFromMsg(msg *eventstream.Message, contentType string) io.Reader {
