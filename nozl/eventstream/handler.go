@@ -31,7 +31,7 @@ func SendMessageHandler(ctx echo.Context) error {
 
 	msgFilterAllow := <-MessageFilterAllow
 
-	if msgFilterAllow.MessageFilterAllow == true {
+	if msgFilterAllow.Allow == true {
 		serviceResponse := <-ServiceResponse
 
 		var js map[string]interface{}

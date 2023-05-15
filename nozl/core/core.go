@@ -169,11 +169,10 @@ func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
 		err := schema.ValidateOpenAPIV3Schema(msg)
 		if err != nil {
-			// TODO: Return error to sender and break function here. Decide later
-			// if this message should be sent to dead letter queue
+			// TODO: Decide later if this message should be sent to dead letter queue
 			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				MessageFilterAllow: false,
-				Status:             string(err.Error()),
+				Allow:  false,
+				Reason: string(err.Error()),
 			}
 			shared.Logger.Error(err.Error())
 			return
@@ -185,8 +184,8 @@ func handleFilter(c *core) nats.Handler {
 			)
 			eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
 			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				MessageFilterAllow: true,
-				Status:             "ok",
+				Allow:  true,
+				Reason: "ok",
 			}
 		} else {
 			queuePayload, _ := json.Marshal(msg)
@@ -206,8 +205,8 @@ func handleFilter(c *core) nats.Handler {
 			)
 
 			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				MessageFilterAllow: false,
-				Status:             "Rate Limit Exceeded",
+				Allow:  false,
+				Reason: "Rate Limit Exceeded",
 			}
 		}
 	}

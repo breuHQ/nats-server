@@ -20,8 +20,8 @@ type (
 	}
 
 	MessageFilterStatus struct {
-		MessageFilterAllow bool
-		Status             string
+		Allow  bool   `json:"allow"`
+		Reason string `json:"reason"`
 	}
 )
 
