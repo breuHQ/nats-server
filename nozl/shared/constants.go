@@ -19,7 +19,7 @@ const (
 	UserKV            string = "User"
 	MsgWaitListKV     string = "MsgWaitList"
 	SchemaKV          string = "schema"
-	SchemaFileKV	  string = "SchemaFile"
+	SchemaDetailsKV	  string = "SchemaDetails"
 	MsgLogKV          string = "MsgLog"
 	SenderPhoneNumber string = "+19034598701"
 )

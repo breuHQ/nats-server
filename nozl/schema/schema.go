@@ -29,7 +29,7 @@ func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 	}
 }
 
-func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
+func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) error {
 	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
 	if err != nil {
@@ -37,25 +37,30 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 		return err
 	}
 
+	schemaDetails, err := AddSchemaDetailstoKVStore(serviceID, fileName)
+	if err != nil {
+		shared.Logger.Error("Failed to add schemaDetails to KV store!")
+		return err
+	}
+
 	for pathKey, pathValue := range doc.Paths {
 
 		if pathValue.Get != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get)
+			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, schemaDetails.FileID)
 		}
 		if pathValue.Post != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post)
+			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, schemaDetails.FileID)
 		}
 		if pathValue.Put != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put)
+			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, schemaDetails.FileID)
 		}
 		if pathValue.Patch != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch)
+			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, schemaDetails.FileID)
 		}
 		if pathValue.Delete != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete)
+			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, schemaDetails.FileID)
 		}
 	}
-
 	return nil
 }
 
@@ -95,12 +100,14 @@ func stringInSlice(refStr string, list []string) bool {
 	return false
 }
 
-func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation) {
+func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, fileID string) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	MakeOptionalFieldsNullable(operation)
 	currSchema := addSchema(pathKey, httpMethod, operation)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
+	// TODO: Add fileID to schema key. format would be serviceID.fileID.operationID to enable wildcards
+	// schemaKv.Put(fmt.Sprintf("%s.%s.%s", serviceID, fileID, operationID), jsonPayload)
 	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
 }
 
