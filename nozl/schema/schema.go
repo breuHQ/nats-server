@@ -114,39 +114,43 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		return err
 	}
 
-	if schemaValid.HttpMethod != "GET" && schemaValid.HttpMethod != "DELETE" {
-		headers := make(map[string]string)
+	//if schemaValid.HttpMethod != "GET" && schemaValid.HttpMethod != "DELETE" {
+	headers := make(map[string]string)
+	if schemaValid.PathDetails.RequestBody != nil {
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
+	}
+	payload := GetPayloadFromMsg(msg)
+	pathParams := GetPathParamsFromMsg(msg)
+	queryParams := GetQueryParamsFromMsg(msg)
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
 
-		payload := GetPayloadFromMsg(msg, headers["Content-Type"])
-		pathParams := GetPathParamsFromMsg(msg)
-		httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
-
-		for key, val := range headers {
-			httpReq.Header.Add(key, val)
-		}
-
-		input := &openapi3filter.RequestValidationInput{
-			Request:    httpReq,
-			PathParams: pathParams,
-		}
-
-		ctx := context.Background()
-		for _, param := range schemaValid.PathDetails.Parameters {
-			err = openapi3filter.ValidateParameter(ctx, input, param.Value)
-			if err != nil {
-				return err
-			}
-		}
-
-		err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
-
-		return err
+	for key, val := range headers {
+		httpReq.Header.Add(key, val)
 	}
 
-	return nil
+	input := &openapi3filter.RequestValidationInput{
+		Request:     httpReq,
+		PathParams:  pathParams,
+		QueryParams: queryParams,
+	}
+
+	ctx := context.Background()
+	for _, param := range schemaValid.PathDetails.Parameters {
+		err = openapi3filter.ValidateParameter(ctx, input, param.Value)
+		if err != nil {
+			return err
+		}
+	}
+
+	if schemaValid.PathDetails.RequestBody != nil {
+		err = openapi3filter.ValidateRequestBody(ctx, input, schemaValid.PathDetails.RequestBody.Value)
+	}
+
+	return err
+
+	//return nil
 }
 
 func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {
@@ -157,7 +161,15 @@ func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {
 	return pathParams
 }
 
-func GetPayloadFromMsg(msg *eventstream.Message, contentType string) io.Reader {
+func GetQueryParamsFromMsg(msg *eventstream.Message) url.Values {
+	urlValues := url.Values{}
+	for key, val := range msg.QueryParams {
+		urlValues.Set(key, val.(string))
+	}
+	return urlValues
+}
+
+func GetPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formValues := url.Values{}
 	for key, val := range msg.ReqBody {
 		formValues.Set(key, val.(string))
