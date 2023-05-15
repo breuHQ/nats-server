@@ -2,7 +2,6 @@ package eventstream
 
 import (
 	"fmt"
-	// "os"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -13,17 +12,18 @@ import (
 
 type (
 	eventstream struct {
-		Conn      *nats.Conn
-		EnCon     *nats.EncodedConn
-		Stream    nats.JetStreamContext
+		Conn   *nats.Conn
+		EnCon  *nats.EncodedConn
+		Stream nats.JetStreamContext
 		// ServerURL string `env:"NATS_SERVER_URL" env-default:"nats://localhost:4222"`
-		ServerURL string 
+		ServerURL string
 	}
 )
 
 var (
-	Eventstream = &eventstream{}
-	MessageStatus chan string
+	Eventstream        = &eventstream{}
+	MessageFilterAllow chan *MessageFilterStatus
+	ServiceResponse    chan []byte
 )
 
 // func (n *eventstream) ReadEnv() {
@@ -66,7 +66,8 @@ func (n *eventstream) InitializeNats() {
 		n.Conn = nc
 		n.EnCon = ec
 		n.Stream = js
-		MessageStatus = make(chan string)
+		MessageFilterAllow = make(chan *MessageFilterStatus)
+		ServiceResponse = make(chan []byte)
 
 		return nil
 	}

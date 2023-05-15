@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -169,9 +168,13 @@ func handleFilter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
 		err := schema.ValidateOpenAPIV3Schema(msg)
 		if err != nil {
-			// TODO: Return error to sender and break function here. Decide later
-			// if this message should be sent to dead letter queue
+			// TODO: Decide later if this message should be sent to dead letter queue
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				Allow:  false,
+				Reason: string(err.Error()),
+			}
 			shared.Logger.Error(err.Error())
+			return
 		}
 		if c.filterLimiterAllow(msg) {
 			shared.Logger.Info(msg.ID,
@@ -179,7 +182,10 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Allowed"),
 			)
 			eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
-			eventstream.MessageStatus <- fmt.Sprintf("message with ID %s allowed by filter limiter", msg.ID)
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				Allow:  true,
+				Reason: "ok",
+			}
 		} else {
 			queuePayload, _ := json.Marshal(msg)
 
@@ -197,7 +203,10 @@ func handleFilter(c *core) nats.Handler {
 				zap.String("Status", "Rejected"),
 			)
 
-			eventstream.MessageStatus <- fmt.Sprintf("message with ID %s rejected by filter limiter", msg.ID)
+			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+				Allow:  false,
+				Reason: "Rate Limit Exceeded",
+			}
 		}
 	}
 }
@@ -210,9 +219,14 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 		return err
 	}
 
-	if err := serv.SendMsgTwilio(msg); err != nil {
+	t := service.Twilio{}
+	result, err := t.GenericHTTPRequest(serv, msg)
+
+	if err != nil {
 		return err
 	}
+
+	eventstream.ServiceResponse <- result
 
 	err = c.LogSentMessage(msg)
 
