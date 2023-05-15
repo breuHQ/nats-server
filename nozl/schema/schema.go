@@ -151,7 +151,7 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 
 func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {
 	pathParams := make(map[string]string)
-	for key, val := range msg.URLParams {
+	for key, val := range msg.PathParams {
 		pathParams[key] = val.(string)
 	}
 	return pathParams

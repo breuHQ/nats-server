@@ -12,7 +12,7 @@ import (
 
 func SendMessageHandler(ctx echo.Context) error {
 	var reqBody ReqBody
-	var urlParams URLParams
+	var urlParams PathParams
 	msg := NewMessage("", "", reqBody, urlParams)
 
 	if err := ctx.Bind(&msg); err != nil {
