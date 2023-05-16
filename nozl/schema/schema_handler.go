@@ -55,6 +55,12 @@ func DeleteSchemaFile(fileID string) error{
 		shared.Logger.Error("Failed to retreive KV store!")
 		return err
 	}
+	
+	_, err = kv.Get(fileID)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+		return err
+	}
 
 	err = kv.Delete(fileID)
 	if err != nil {
@@ -92,9 +98,11 @@ func DeleteStoredOperations(serviceID string, fileID string) error {
 			shared.Logger.Error("Failed to unmarshal schemaDetails from KV store!")
 			return err
 		}
+
 		if schemaVal.File.FileID == fileID && schemaVal.File.ServiceID == serviceID {
 			kv.Delete(key)
 		}
+		
 	}
 	return nil
 }

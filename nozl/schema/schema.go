@@ -82,7 +82,7 @@ func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 
 		for key, val := range ReqBodyParams {
 			MakeRefsEmpty(val) // This is being done because when marshalling SchemaRef, it only marshals field "Ref"
-			if !stringInSlice(key, RequiredParams){
+			if !stringInSlice(key, RequiredParams) {
 				val.Value.Nullable = true
 			}
 		}
