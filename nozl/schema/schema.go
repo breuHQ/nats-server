@@ -23,7 +23,7 @@ type Schema struct {
 	File        SchemaFile
 }
 
-func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, schemaFile SchemaFile) Schema {
+func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
 	return Schema{
 		BaseUrl:     baseUrl,
 		Path:        pathKey,
@@ -51,19 +51,19 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) er
 		baseUrl := pathValue.Servers[0].URL
 
 		if pathValue.Get != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, baseUrl, schemaFile)
 		}
 		if pathValue.Post != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, baseUrl, schemaFile)
 		}
 		if pathValue.Put != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, baseUrl, schemaFile)
 		}
 		if pathValue.Patch != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, baseUrl, schemaFile)
 		}
 		if pathValue.Delete != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, baseUrl, schemaFile)
 		}
 	}
 	return nil
@@ -105,13 +105,13 @@ func stringInSlice(refStr string, list []string) bool {
 	return false
 }
 
-func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, schemaFile SchemaFile) {
+func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, baseUrl string, schemaFile SchemaFile) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	MakeOptionalFieldsNullable(operation)
-	currSchema := addSchema(pathKey, httpMethod, operation, schemaFile)
+	currSchema := addSchema(pathKey, httpMethod, operation, baseUrl, schemaFile)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
-	
+
 	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
 }
 
