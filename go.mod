@@ -19,6 +19,8 @@ require (
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/getkin/kin-openapi v0.116.0 // indirect
+	github.com/go-faker/faker/v4 v4.1.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect

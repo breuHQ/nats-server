@@ -12,7 +12,9 @@ import (
 
 func SendMessageHandler(ctx echo.Context) error {
 	var reqBody ReqBody
-	msg := NewMessage("", "", reqBody)
+	var pathParams PathParams
+	var queryParams QueryParams
+	msg := NewMessage("", "", reqBody, pathParams, queryParams)
 
 	if err := ctx.Bind(&msg); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
@@ -29,10 +31,25 @@ func SendMessageHandler(ctx echo.Context) error {
 
 	Eventstream.PublishEncodedMessage("Filter", msg)
 
-	msgStatus := <-MessageStatus
+	msgFilterAllow := <-MessageFilterAllow
+
+	if msgFilterAllow.Allow == true {
+		serviceResponse := <-ServiceResponse
+
+		var js map[string]interface{}
+
+		_ = json.Unmarshal(serviceResponse, &js)
+
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message_id":    msg.ID,
+			"filter_status": msgFilterAllow,
+			"response_body": js,
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": msgStatus,
+		"message_id":    msg.ID,
+		"filter_status": msgFilterAllow,
 	})
 }
 

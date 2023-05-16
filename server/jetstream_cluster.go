@@ -2376,7 +2376,7 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 			ci := js.clusterInfo(rg)
 			mset.checkClusterInfo(ci)
 
-			newPeers, _, newPeerSet, oldPeerSet := genPeerInfo(rg.Peers, len(rg.Peers)-replicas)
+			newPeers, oldPeers, newPeerSet, oldPeerSet := genPeerInfo(rg.Peers, len(rg.Peers)-replicas)
 
 			// If we are part of the new peerset and we have been passed the baton.
 			// We will handle scale down.
@@ -2402,6 +2402,11 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 					continue
 				}
 
+				// We are good to go, can scale down here.
+				for _, p := range oldPeers {
+					n.ProposeRemovePeer(p)
+				}
+
 				csa := sa.copyGroup()
 				csa.Group.Peers = newPeers
 				csa.Group.Preferred = ourPeerId
@@ -2425,6 +2430,7 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 				// Check if we have a quorom.
 				if current >= neededCurrent {
 					s.Noticef("Transfer of stream leader for '%s > %s' to '%s'", accName, sa.Config.Name, newLeader)
+					n.UpdateKnownPeers(newPeers)
 					n.StepDown(newLeaderPeer)
 				}
 			}
@@ -5862,6 +5868,18 @@ func (s *Server) jsClusteredStreamUpdateRequest(ci *ClientInfo, acc *Account, su
 	if isReplicaChange {
 		// We are adding new peers here.
 		if newCfg.Replicas > len(rg.Peers) {
+			// Check if we do not have a cluster assigned, and if we do not make sure we
+			// try to pick one. This could happen with older streams that were assigned by
+			// previous servers.
+			if rg.Cluster == _EMPTY_ {
+				// Prefer placement directrives if we have them.
+				if newCfg.Placement != nil && newCfg.Placement.Cluster != _EMPTY_ {
+					rg.Cluster = newCfg.Placement.Cluster
+				} else {
+					// Fall back to the cluster assignment from the client.
+					rg.Cluster = ci.Cluster
+				}
+			}
 			peers, err := cc.selectPeerGroup(newCfg.Replicas, rg.Cluster, newCfg, rg.Peers, 0, nil)
 			if err != nil {
 				resp.Error = NewJSClusterNoPeersError(err)

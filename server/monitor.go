@@ -137,6 +137,9 @@ type ConnInfo struct {
 	NameTag        string         `json:"name_tag,omitempty"`
 	Tags           jwt.TagList    `json:"tags,omitempty"`
 	MQTTClient     string         `json:"mqtt_client,omitempty"` // This is the MQTT client id
+
+	// Internal
+	rtt int64 // For fast sorting
 }
 
 // TLSPeerCert contains basic information about a TLS peer certificate
@@ -190,9 +193,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 
 	if opts != nil {
 		// If no sort option given or sort is by uptime, then sort by cid
-		if opts.Sort == _EMPTY_ {
-			sortOpt = ByCid
-		} else {
+		if opts.Sort != _EMPTY_ {
 			sortOpt = opts.Sort
 			if !sortOpt.IsValid() {
 				return nil, fmt.Errorf("invalid sorting option: %s", sortOpt)
@@ -201,9 +202,6 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 
 		// Auth specifics.
 		auth = opts.Username
-		if !auth && (user != _EMPTY_ || acc != _EMPTY_) {
-			return nil, fmt.Errorf("filter by user or account only allowed with auth option")
-		}
 		user = opts.User
 		acc = opts.Account
 		mqttCID = opts.MQTTClient
@@ -273,7 +271,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 	}
 
 	// Walk the open client list with server lock held.
-	s.mu.Lock()
+	s.mu.RLock()
 	// Default to all client unless filled in above.
 	if clist == nil {
 		clist = s.clients
@@ -300,9 +298,10 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 	if acc != _EMPTY_ && len(closedClients) > 0 {
 		var ccc []*closedClient
 		for _, cc := range closedClients {
-			if cc.acc == acc {
-				ccc = append(ccc, cc)
+			if cc.acc != acc {
+				continue
 			}
+			ccc = append(ccc, cc)
 		}
 		c.Total -= (len(closedClients) - len(ccc))
 		closedClients = ccc
@@ -357,7 +356,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 					continue
 				}
 				// Do user filtering second
-				if user != _EMPTY_ && client.opts.Username != user {
+				if user != _EMPTY_ && client.getRawAuthUserLock() != user {
 					continue
 				}
 				// Do mqtt client ID filtering next
@@ -368,7 +367,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 			}
 		}
 	}
-	s.mu.Unlock()
+	s.mu.RUnlock()
 
 	// Filter by subject now if needed. We do this outside of server lock.
 	if filter != _EMPTY_ {
@@ -500,6 +499,8 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 		sort.Sort(sort.Reverse(byStop{pconns}))
 	case ByReason:
 		sort.Sort(byReason{pconns})
+	case ByRTT:
+		sort.Sort(sort.Reverse(byRTT{pconns}))
 	}
 
 	minoff := c.Offset
@@ -529,6 +530,10 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 // Fills in the ConnInfo from the client.
 // client should be locked.
 func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time, auth bool) {
+	// For fast sort if required.
+	rtt := client.getRTT()
+	ci.rtt = int64(rtt)
+
 	ci.Cid = client.cid
 	ci.MQTTClient = client.getMQTTClientID()
 	ci.Kind = client.kindString()
@@ -537,7 +542,7 @@ func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time, auth bool) 
 	ci.LastActivity = client.last
 	ci.Uptime = myUptime(now.Sub(client.start))
 	ci.Idle = myUptime(now.Sub(client.last))
-	ci.RTT = client.getRTT().String()
+	ci.RTT = rtt.String()
 	ci.OutMsgs = client.outMsgs
 	ci.OutBytes = client.outBytes
 	ci.NumSubs = uint32(len(client.subs))
@@ -586,7 +591,7 @@ func (c *client) getRTT() time.Duration {
 	if c.rtt == 0 {
 		// If a real client, go ahead and send ping now to get a value
 		// for RTT. For tests and telnet, or if client is closing, etc skip.
-		if c.opts.Lang != "" {
+		if c.opts.Lang != _EMPTY_ {
 			c.sendRTTPingLocked()
 		}
 		return 0
@@ -783,7 +788,7 @@ type RouteInfo struct {
 // Routez returns a Routez struct containing information about routes.
 func (s *Server) Routez(routezOpts *RoutezOptions) (*Routez, error) {
 	rs := &Routez{Routes: []*RouteInfo{}}
-	rs.Now = time.Now().UTC()
+	rs.Now = time.Now()
 
 	if routezOpts == nil {
 		routezOpts = &RoutezOptions{}
@@ -970,7 +975,7 @@ func (s *Server) Subsz(opts *SubszOptions) (*Subsz, error) {
 	slStats := &SublistStats{}
 
 	// FIXME(dlc) - Make account aware.
-	sz := &Subsz{s.info.ID, time.Now().UTC(), slStats, 0, offset, limit, nil}
+	sz := &Subsz{s.info.ID, time.Now(), slStats, 0, offset, limit, nil}
 
 	if subdetail {
 		var raw [4096]*subscription
@@ -1595,7 +1600,7 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	v.MaxPending = opts.MaxPending
 	v.TLSTimeout = opts.TLSTimeout
 	v.WriteDeadline = opts.WriteDeadline
-	v.ConfigLoadTime = s.configTime
+	v.ConfigLoadTime = s.configTime.UTC()
 	// Update route URLs if applicable
 	if s.varzUpdateRouteURLs {
 		v.Cluster.URLs = urlsToStrings(opts.Routes)

@@ -1352,6 +1352,10 @@ func (n *raft) StepDown(preferred ...string) error {
 		}
 	}
 
+	// Clear our vote state.
+	n.vote = noVote
+	n.writeTermVote()
+
 	stepdown := n.stepdown
 	prop := n.prop
 	n.Unlock()
@@ -1364,7 +1368,6 @@ func (n *raft) StepDown(preferred ...string) error {
 	if maybeLeader != noLeader {
 		n.debug("Selected %q for new leader", maybeLeader)
 		prop.push(newEntry(EntryLeaderTransfer, []byte(maybeLeader)))
-		time.AfterFunc(250*time.Millisecond, func() { stepdown.push(noLeader) })
 	} else {
 		// Force us to stepdown here.
 		n.debug("Stepping down")
@@ -1402,6 +1405,7 @@ func (n *raft) campaign() error {
 func (n *raft) xferCampaign() error {
 	n.debug("Starting transfer campaign")
 	if n.state == Leader {
+		n.lxfer = false
 		return errAlreadyLeader
 	}
 	n.resetElect(10 * time.Millisecond)
@@ -2221,11 +2225,20 @@ func (n *raft) runAsLeader() {
 					continue
 				}
 				n.sendAppendEntry(entries)
+
+				// If this is us sending out a leadership transfer stepdown inline here.
+				if b.Type == EntryLeaderTransfer {
+					n.prop.recycle(&es)
+					n.debug("Stepping down due to leadership transfer")
+					n.switchToFollower(noLeader)
+					return
+				}
 				// We need to re-create `entries` because there is a reference
 				// to it in the node's pae map.
 				entries = nil
 			}
 			n.prop.recycle(&es)
+
 		case <-hb.C:
 			if n.notActive() {
 				n.sendHeartbeat()
@@ -3187,6 +3200,10 @@ func (n *raft) processAppendEntry(ae *appendEntry, sub *subscription) {
 						// Here we can become a leader but need to wait for resume of the apply channel.
 						n.lxfer = true
 					}
+				} else {
+					// Since we are here we are not the chosen one but we should clear any vote preference.
+					n.vote = noVote
+					n.writeTermVote()
 				}
 			}
 		case EntryAddPeer:

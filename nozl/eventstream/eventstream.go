@@ -2,7 +2,6 @@ package eventstream
 
 import (
 	"fmt"
-	// "os"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -22,8 +21,9 @@ type (
 )
 
 var (
-	Eventstream   = &eventstream{}
-	MessageStatus chan string
+	Eventstream        = &eventstream{}
+	MessageFilterAllow chan *MessageFilterStatus
+	ServiceResponse    chan []byte
 )
 
 // func (n *eventstream) ReadEnv() {
@@ -66,7 +66,8 @@ func (n *eventstream) InitializeNats() {
 		n.Conn = nc
 		n.EnCon = ec
 		n.Stream = js
-		MessageStatus = make(chan string)
+		MessageFilterAllow = make(chan *MessageFilterStatus)
+		ServiceResponse = make(chan []byte)
 
 		return nil
 	}
