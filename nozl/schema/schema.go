@@ -23,7 +23,7 @@ type Schema struct {
 	File        SchemaFile
 }
 
-func addSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
+func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
 	return Schema{
 		BaseUrl:     baseUrl,
 		Path:        pathKey,
@@ -82,7 +82,7 @@ func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 
 		for key, val := range ReqBodyParams {
 			MakeRefsEmpty(val) // This is being done because when marshalling SchemaRef, it only marshals field "Ref"
-			if stringInSlice(key, RequiredParams) == false {
+			if !stringInSlice(key, RequiredParams){
 				val.Value.Nullable = true
 			}
 		}
@@ -108,7 +108,7 @@ func stringInSlice(refStr string, list []string) bool {
 func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, baseUrl string, schemaFile SchemaFile) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	MakeOptionalFieldsNullable(operation)
-	currSchema := addSchema(pathKey, httpMethod, operation, baseUrl, schemaFile)
+	currSchema := newSchema(pathKey, httpMethod, operation, baseUrl, schemaFile)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
 
@@ -157,8 +157,6 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	}
 
 	return err
-
-	//return nil
 }
 
 func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {
