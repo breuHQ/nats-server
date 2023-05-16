@@ -8,22 +8,22 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
-type SchemaDetails struct {
+type SchemaFile struct {
 	ServiceID string
 	FileName  string
 	FileID    string
 }
 
-func NewSchemaDetails(serviceID string, fileName string) *SchemaDetails {
-	return &SchemaDetails{
+func NewSchemaFile(serviceID string, fileName string) SchemaFile {
+	return SchemaFile{
 		ServiceID: serviceID,
 		FileName:  fileName,
 		FileID:    uuid.New().String(),
 	}
 }
 
-func AddSchemaDetailsToKVStoreHelper(schemaFile *SchemaDetails) error {
-	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaDetailsKV)
+func AddSchemaFileToKVStoreHelper(schemaFile SchemaFile) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 
 	if err != nil {
 		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
@@ -35,11 +35,11 @@ func AddSchemaDetailsToKVStoreHelper(schemaFile *SchemaDetails) error {
 	return nil
 }
 
-func AddSchemaDetailstoKVStore(serviceID string, fileName string) (*SchemaDetails, error) {
-	schemaDetails := NewSchemaDetails(serviceID, fileName)
-	if err := AddSchemaDetailsToKVStoreHelper(schemaDetails); err != nil {
+func AddSchemaFiletoKVStore(serviceID string, fileName string) (SchemaFile, error) {
+	schemaDetails := NewSchemaFile(serviceID, fileName)
+	if err := AddSchemaFileToKVStoreHelper(schemaDetails); err != nil {
 		shared.Logger.Error("Failed to add schemaDetails to KV store!")
-		return nil, err
+		return schemaDetails, err
 	}
 	return schemaDetails, nil
 
