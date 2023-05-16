@@ -2,10 +2,13 @@ package schema
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
 func UploadOpenApiSpecHandler(ctx echo.Context) error {
@@ -46,8 +49,53 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	})
 }
 
-func DeleteOpenApiV3Schema(serviceID string, fileID string) error {
+func DeleteSchemaFile(fileID string) error{
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
 
+	err = kv.Delete(fileID)
+	if err != nil {
+		shared.Logger.Error("Failed to Delete KV pair")
+		return err
+	}
+
+	return nil
+
+}
+
+func DeleteStoredOperations(serviceID string, fileID string) error {
+
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive value from KV store!")
+			return err
+		}
+
+		schemaVal := new(Schema)
+		if err := json.Unmarshal(value.Value(), &schemaVal); err != nil {
+			shared.Logger.Error("Failed to unmarshal schemaDetails from KV store!")
+			return err
+		}
+		if schemaVal.File.FileID == fileID && schemaVal.File.ServiceID == serviceID {
+			kv.Delete(key)
+		}
+	}
 	return nil
 }
 
@@ -66,9 +114,15 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	if err := DeleteOpenApiV3Schema(serviceID, fileID); err != nil {
+	if err := DeleteStoredOperations(serviceID, fileID); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Error in deleting file",
+			"message": "Error in deleting openapi spec",
+		})
+	}
+
+	if err := DeleteSchemaFile(fileID); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in deleting schema file",
 		})
 	}
 

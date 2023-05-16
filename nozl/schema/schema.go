@@ -41,7 +41,7 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) er
 		return err
 	}
 
-	schemaFile, err := AddSchemaFiletoKVStore(serviceID, fileName)
+	schemaFile, err := AddSchemaFile(serviceID, fileName)
 	if err != nil {
 		shared.Logger.Error("Failed to add schemaDetails to KV store!")
 		return err
