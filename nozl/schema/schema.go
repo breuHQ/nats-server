@@ -20,18 +20,20 @@ type Schema struct {
 	Path        string
 	HttpMethod  string
 	PathDetails *openapi3.Operation
+	File        SchemaFile
 }
 
-func addSchema(baseUrl string, pathKey string, httpMethod string, pathDetails *openapi3.Operation) Schema {
+func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
 	return Schema{
 		BaseUrl:     baseUrl,
 		Path:        pathKey,
 		HttpMethod:  httpMethod,
 		PathDetails: pathDetails,
+		File:        schemaFile,
 	}
 }
 
-func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
+func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) error {
 	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
 	if err != nil {
@@ -39,26 +41,31 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte) error {
 		return err
 	}
 
+	schemaFile, err := AddSchemaFile(serviceID, fileName)
+	if err != nil {
+		shared.Logger.Error("Failed to add schemaDetails to KV store!")
+		return err
+	}
+
 	for pathKey, pathValue := range doc.Paths {
 		baseUrl := pathValue.Servers[0].URL
 
 		if pathValue.Get != nil {
-			AddSchemaToKVStore(serviceID, baseUrl, pathKey, "GET", pathValue.Get)
+			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, baseUrl, schemaFile)
 		}
 		if pathValue.Post != nil {
-			AddSchemaToKVStore(serviceID, baseUrl, pathKey, "POST", pathValue.Post)
+			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, baseUrl, schemaFile)
 		}
 		if pathValue.Put != nil {
-			AddSchemaToKVStore(serviceID, baseUrl, pathKey, "PUT", pathValue.Put)
+			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, baseUrl, schemaFile)
 		}
 		if pathValue.Patch != nil {
-			AddSchemaToKVStore(serviceID, baseUrl, pathKey, "PATCH", pathValue.Patch)
+			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, baseUrl, schemaFile)
 		}
 		if pathValue.Delete != nil {
-			AddSchemaToKVStore(serviceID, baseUrl, pathKey, "DELETE", pathValue.Delete)
+			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, baseUrl, schemaFile)
 		}
 	}
-
 	return nil
 }
 
@@ -75,7 +82,7 @@ func MakeOptionalFieldsNullable(operation *openapi3.Operation) error {
 
 		for key, val := range ReqBodyParams {
 			MakeRefsEmpty(val) // This is being done because when marshalling SchemaRef, it only marshals field "Ref"
-			if stringInSlice(key, RequiredParams) == false {
+			if !stringInSlice(key, RequiredParams) {
 				val.Value.Nullable = true
 			}
 		}
@@ -98,12 +105,13 @@ func stringInSlice(refStr string, list []string) bool {
 	return false
 }
 
-func AddSchemaToKVStore(serviceID string, baseUrl string, pathKey string, httpMethod string, operation *openapi3.Operation) {
+func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, baseUrl string, schemaFile SchemaFile) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	MakeOptionalFieldsNullable(operation)
-	currSchema := addSchema(baseUrl, pathKey, httpMethod, operation)
+	currSchema := newSchema(pathKey, httpMethod, operation, baseUrl, schemaFile)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
+
 	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
 }
 
@@ -149,8 +157,6 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	}
 
 	return err
-
-	//return nil
 }
 
 func GetPathParamsFromMsg(msg *eventstream.Message) map[string]string {

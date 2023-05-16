@@ -87,6 +87,7 @@ func (c *core) Init() {
 	c.initKVStore(shared.MsgLogKV, "")
 	c.initKVStore(shared.TenantAPIKV, "")
 	c.initKVStore(shared.SchemaKV, "")
+	c.initKVStore(shared.SchemaFileKV, "")
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string) {
