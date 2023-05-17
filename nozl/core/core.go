@@ -88,6 +88,8 @@ func (c *core) Init() {
 	c.initKVStore(shared.TenantAPIKV, "")
 	c.initKVStore(shared.SchemaKV, "")
 	c.initKVStore(shared.SchemaFileKV, "")
+	c.initKVStore(shared.FilterLimiterKV, "")
+	c.initKVStore(shared.MainLimiterKV, "")
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string) {
