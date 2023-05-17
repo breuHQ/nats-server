@@ -11,7 +11,7 @@ import (
 )
 
 func GetMainLimiterRate(ctx echo.Context) error {
-	rateLimit := Core.MainLimiter.Limit()
+	rateLimit := Core.MainLimiter.GetLimit()
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit": rateLimit,

@@ -596,7 +596,7 @@ func TestWaitCancel(t *testing.T) {
 	}()
 	runWait(t, tt, lim, wait{"will-cancel", ctx, 3, 1, false})
 	// should get 3 tokens back, and have lim.tokens = 2
-	t.Logf("tokens:%v last:%v lastEvent:%v", lim.tokens, lim.last, lim.lastEvent)
+	t.Logf("tokens:%v last:%v lastEvent:%v", lim.Tokens, lim.Last, lim.LastEvent)
 	runWait(t, tt, lim, wait{"act-now-after-cancel", context.Background(), 2, 0, true})
 }
 
