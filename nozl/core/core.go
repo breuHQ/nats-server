@@ -124,20 +124,47 @@ func (c *core) Send(msg *eventstream.Message) {
 // TODO: Get limiter values from API.
 func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
 	userID := msg.ReqBody["user_id"].(string)
-	if val, exists := c.Filters[userID]; exists {
-		return val.Allow()
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.FilterLimiterKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return false
 	}
 
-	c.RegisterFilter(userID, shared.UserTokenRate, shared.UserBucketSize)
+	flRaw, err := kv.Get(userID)
+	if err != nil {
+		c.RegisterFilter(kv, userID)
+		return true
+	}
 
-	return c.Filters[userID].Allow()
+	fl := &rate.Limiter{}
+	err = json.Unmarshal(flRaw.Value(), fl)
+
+	allow := fl.Allow()
+	flUpdated, err := json.Marshal(fl)
+	_, err = kv.Put(userID, flUpdated)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return false
+	}
+
+	return allow
 }
 
-func (c *core) RegisterFilter(userID string, tokenRate int, bucketSize int) uuid.UUID {
-	newFilter := filter.NewFilter(tokenRate, bucketSize, userID)
-	c.Filters[userID] = newFilter
+func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
+	newFilter := rate.NewLimiter(rate.Limit(shared.UserTokenRate), shared.UserBucketSize)
+	newFilter.Allow()
+	newFilterRaw, err := json.Marshal(newFilter)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return
+	}
 
-	return newFilter.GetID()
+	_, err = kv.Put(userID, newFilterRaw)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return
+	}
+	return
 }
 
 // Get Tenant details by providing its id.
