@@ -150,6 +150,37 @@ func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
 	return allow
 }
 
+func (c *core) mainLimiterWait(msg *eventstream.Message) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MainLimiterKV)
+	if err != nil {
+		return err
+	}
+
+	mlRaw, err := kv.Get(msg.ServiceID)
+	if err != nil {
+		return err
+	}
+
+	ml := &rate.Limiter{}
+	err = json.Unmarshal(mlRaw.Value(), ml)
+
+	if err := ml.Wait(context.Background()); err != nil {
+		return err
+	}
+
+	mlUpdated, err := json.Marshal(ml)
+	if err != nil {
+		return err
+	}
+
+	_, err = kv.Put(msg.ServiceID, mlUpdated)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 	newFilter := rate.NewLimiter(rate.Limit(shared.UserTokenRate), shared.UserBucketSize)
 	newFilter.Allow()
@@ -179,7 +210,8 @@ func (c *core) GetTenantDetailsByID(id uuid.UUID) (string, error) {
 
 func handleLimiter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
-		if err := c.MainLimiter.Wait(context.Background()); err != nil {
+
+		if err := c.mainLimiterWait(msg); err != nil {
 			shared.Logger.Error(err.Error())
 		}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
+	"github.com/nats-io/nats-server/v2/nozl/rate"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
@@ -70,7 +71,27 @@ func CreateServiceHandler(ctx echo.Context) error {
 		})
 	}
 
+	addMainLimitertoKVStore(newService)
+
 	return ctx.JSON(http.StatusCreated, newService)
+}
+
+func addMainLimitertoKVStore(serv *Service) {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MainLimiterKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	newFilter := rate.NewLimiter(rate.Limit(shared.MainLimiterRate), shared.MainLimiterBucketSize)
+	newFilterRaw, err := json.Marshal(newFilter)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	_, err = kv.Put(serv.ID, newFilterRaw)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 }
 
 func GetServiceHandler(ctx echo.Context) error {
@@ -105,12 +126,11 @@ func GetServiceAllHandler(ctx echo.Context) error {
 	}
 
 	serviceAllList := []Service{}
-	
+
 	allKeys, err := kv.Keys()
 	if err != nil {
 		return ctx.JSON(http.StatusOK, serviceAllList)
 	}
-
 
 	for _, key := range allKeys {
 		value, err := kv.Get(key)
