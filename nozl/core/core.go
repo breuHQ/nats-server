@@ -6,29 +6,21 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
-	"github.com/nats-io/nats-server/v2/nozl/filter"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
 	"github.com/nats-io/nats-server/v2/nozl/schema"
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
-	"github.com/nats-io/nats-server/v2/nozl/tenant"
 )
 
 type (
 	core struct {
-		Tenants     Tenants
-		Filters     Filters
-		MainLimiter *rate.Limiter
-		KVStore     nats.KeyValue
+		KVStore nats.KeyValue
 	}
 
-	Tenants map[uuid.UUID]tenant.Tenant
-	Filters map[string]filter.Filter
 	Subject string
 )
 
@@ -50,32 +42,7 @@ func (s Subject) String() string {
 	return string(s)
 }
 
-func (filters Filters) GetByID(id string) (filter.Filter, error) {
-	if fil, exists := filters[id]; exists {
-		return fil, nil
-	}
-
-	return nil, ErrFilterDoesNotExist
-}
-
-func (t Tenants) GetByID(id uuid.UUID) (*tenant.Tenant, error) {
-	if tnt, exists := t[id]; exists {
-		return &tnt, nil
-	}
-
-	return nil, ErrTenantDoesNotExist
-}
-
-// Initializes Core Module.
-func (c *core) InitializeCore(tokenRate int, initialBucketSize int) {
-	r := rate.Limit(tokenRate)
-	rl := rate.NewLimiter(r, initialBucketSize)
-	c.Tenants = make(map[uuid.UUID]tenant.Tenant)
-	c.Filters = make(map[string]filter.Filter)
-	c.MainLimiter = rl
-}
-
-// Initializes the Filter Service and the Main Limiter Service.
+// Initializes the Core Module
 func (c *core) Init() {
 	//TODO: Store user filters in nats KV store also
 	c.initFilter()
@@ -196,16 +163,6 @@ func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 		return
 	}
 	return
-}
-
-// Get Tenant details by providing its id.
-func (c *core) GetTenantDetailsByID(id uuid.UUID) (string, error) {
-	t, err := c.Tenants.GetByID(id)
-	if err != nil {
-		return "", err
-	}
-
-	return t.GetDetails(), nil
 }
 
 func handleLimiter(c *core) nats.Handler {

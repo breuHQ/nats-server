@@ -23,8 +23,6 @@ func SetupNozl(backendPort string, natsPort int) {
 	shared.InitializeLogger()
 	eventstream.Eventstream.SetupUrl(natsPort)
 	eventstream.Eventstream.InitializeNats()
-	core.Core.InitializeCore(shared.MainLimiterRate, shared.MainLimiterBucketSize)
-
 	core.Core.Init()
 
 	// Hack around ingress-gce not supporting rewrite-target.
