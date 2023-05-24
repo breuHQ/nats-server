@@ -456,6 +456,9 @@ func (js *jetStream) restartStream(acc *Account, csa *streamAssignment) {
 	}
 	// Make sure to clear out the raft node if still present in the meta layer.
 	if rg := sa.Group; rg != nil && rg.node != nil {
+		if rg.node.State() != Closed {
+			rg.node.Stop()
+		}
 		rg.node = nil
 	}
 	js.mu.Unlock()
@@ -475,6 +478,10 @@ func (js *jetStream) restartStream(acc *Account, csa *streamAssignment) {
 		js.mu.Lock()
 		ca := sa.consumers[cca.Name]
 		if ca != nil && ca.Group != nil {
+			// Make sure the node is stopped if still running.
+			if node := ca.Group.node; node != nil && node.State() != Closed {
+				node.Stop()
+			}
 			// Make sure node is wiped.
 			ca.Group.node = nil
 		}
@@ -489,7 +496,7 @@ func (js *jetStream) restartStream(acc *Account, csa *streamAssignment) {
 // For R1 it will make sure the stream is present on this server.
 func (js *jetStream) isStreamHealthy(acc *Account, sa *streamAssignment) bool {
 	js.mu.Lock()
-	cc := js.cluster
+	s, cc := js.srv, js.cluster
 	if cc == nil {
 		// Non-clustered mode
 		js.mu.Unlock()
@@ -519,7 +526,16 @@ func (js *jetStream) isStreamHealthy(acc *Account, sa *streamAssignment) bool {
 		if !mset.isCatchingUp() {
 			return true
 		}
+	} else if node != nil {
+		if node != mset.raftNode() {
+			s.Warnf("Detected stream cluster node skew '%s > %s'", acc.GetName(), streamName)
+			node.Delete()
+			mset.resetClusteredState(nil)
+		} else if node.State() == Closed {
+			js.restartStream(acc, sa)
+		}
 	}
+
 	return false
 }
 
@@ -529,22 +545,34 @@ func (js *jetStream) isConsumerHealthy(mset *stream, consumer string, ca *consum
 	if mset == nil {
 		return false
 	}
+
 	js.mu.RLock()
 	cc := js.cluster
-	js.mu.RUnlock()
-
 	if cc == nil {
 		// Non-clustered mode
+		js.mu.RUnlock()
 		return true
 	}
+	// These are required.
+	if ca == nil || ca.Group == nil {
+		js.mu.RUnlock()
+		return false
+	}
+	s := js.srv
+	js.mu.RUnlock()
+
+	// Capture RAFT node from assignment.
+	node := ca.Group.node
 
 	// When we try to restart we nil out the node if applicable
 	// and reprocess the consumer assignment.
 	restartConsumer := func() {
 		js.mu.Lock()
-		if ca.Group != nil {
-			ca.Group.node = nil
+		// Make sure the node is stopped if still running.
+		if node != nil && node.State() != Closed {
+			node.Stop()
 		}
+		ca.Group.node = nil
 		deleted := ca.deleted
 		js.mu.Unlock()
 		if !deleted {
@@ -552,17 +580,30 @@ func (js *jetStream) isConsumerHealthy(mset *stream, consumer string, ca *consum
 		}
 	}
 
+	// Check if not running at all.
 	o := mset.lookupConsumer(consumer)
 	if o == nil {
 		restartConsumer()
 		return false
 	}
-	if node := o.raftNode(); node == nil || node.Healthy() {
+
+	// Check RAFT node state.
+	if node == nil || node.Healthy() {
 		return true
-	} else if node != nil && node.State() == Closed {
-		// We have a consumer, and it should have a running node but it is closed.
-		o.stop()
-		restartConsumer()
+	} else if node != nil {
+		if node != o.raftNode() {
+			mset.mu.RLock()
+			accName, streamName := mset.acc.GetName(), mset.cfg.Name
+			mset.mu.RUnlock()
+			s.Warnf("Detected consumer cluster node skew '%s > %s'", accName, streamName, consumer)
+			node.Delete()
+			o.deleteWithoutAdvisory()
+			restartConsumer()
+		} else if node.State() == Closed {
+			// We have a consumer, and it should have a running node but it is closed.
+			o.stop()
+			restartConsumer()
+		}
 	}
 	return false
 }
@@ -2284,27 +2325,19 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 			// Here we are checking if we are not the leader but we have been asked to allow
 			// direct access. We now allow non-leaders to participate in the queue group.
 			if !isLeader && mset != nil {
-				mset.mu.Lock()
-				// Check direct gets first.
-				if mset.cfg.AllowDirect {
-					if mset.directSub == nil && mset.isCurrent() {
-						mset.subscribeToDirect()
-					} else {
-						startDirectAccessMonitoring()
-					}
-				}
-				// Now check for mirror directs as well.
-				if mset.cfg.MirrorDirect {
-					if mset.mirror != nil && mset.mirror.dsub == nil && mset.isCurrent() {
-						mset.subscribeToMirrorDirect()
-					} else {
-						startDirectAccessMonitoring()
-					}
-				}
-				mset.mu.Unlock()
+				startDirectAccessMonitoring()
 			}
 
 		case <-datc:
+			if mset == nil || isRecovering {
+				return
+			}
+			// If we are leader we can stop, we know this is setup now.
+			if isLeader {
+				stopDirectMonitoring()
+				return
+			}
+
 			mset.mu.Lock()
 			ad, md, current := mset.cfg.AllowDirect, mset.cfg.MirrorDirect, mset.isCurrent()
 			if !current {
@@ -2328,7 +2361,7 @@ func (js *jetStream) monitorStream(mset *stream, sa *streamAssignment, sendSnaps
 				mset.subscribeToMirrorDirect()
 			}
 			mset.mu.Unlock()
-			// Stop monitoring.
+			// Stop direct monitoring.
 			stopDirectMonitoring()
 
 		case <-t.C:
@@ -4742,18 +4775,21 @@ func (js *jetStream) processConsumerLeaderChange(o *consumer, isLeader bool) err
 		return errors.New("failed to update consumer leader status")
 	}
 
+	if o == nil || o.isClosed() {
+		return stepDownIfLeader()
+	}
+
 	ca := o.consumerAssignment()
 	if ca == nil {
 		return stepDownIfLeader()
 	}
 	js.mu.Lock()
 	s, account, err := js.srv, ca.Client.serviceAccount(), ca.err
-	client, subject, reply := ca.Client, ca.Subject, ca.Reply
+	client, subject, reply, streamName, consumerName := ca.Client, ca.Subject, ca.Reply, ca.Stream, ca.Name
 	hasResponded := ca.responded
 	ca.responded = true
 	js.mu.Unlock()
 
-	streamName, consumerName := o.streamName(), o.String()
 	acc, _ := s.LookupAccount(account)
 	if acc == nil {
 		return stepDownIfLeader()
@@ -7590,6 +7626,10 @@ func (mset *stream) processSnapshot(snap *streamSnapshot) (e error) {
 		}
 	}
 
+	// Do not let this go on forever.
+	const maxRetries = 3
+	var numRetries int
+
 RETRY:
 	// On retry, we need to release the semaphore we got. Call will be no-op
 	// if releaseSem boolean has not been set to true on successfully getting
@@ -7606,12 +7646,19 @@ RETRY:
 		sub = nil
 	}
 
-	// Block here if we have too many requests in flight.
-	<-s.syncOutSem
-	releaseSem = true
 	if !s.isRunning() {
 		return ErrServerNotRunning
 	}
+
+	numRetries++
+	if numRetries >= maxRetries {
+		// Force a hard reset here.
+		return errFirstSequenceMismatch
+	}
+
+	// Block here if we have too many requests in flight.
+	<-s.syncOutSem
+	releaseSem = true
 
 	// We may have been blocked for a bit, so the reset need to ensure that we
 	// consume the already fired timer.
