@@ -40,12 +40,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nkeys"
 	"github.com/nats-io/nuid"
 
 	"github.com/nats-io/nats-server/v2/logger"
 	"github.com/nats-io/nats-server/v2/nozl"
+	"github.com/nats-io/nats-server/v2/nozl/core"
 )
 
 const (
@@ -1960,7 +1962,33 @@ func (s *Server) Start() {
 	}
 
 	if opts.BackendHTTPPort != _EMPTY_ {
-		nozl.SetupNozl(opts.BackendHTTPPort, opts.Port)
+
+		nozl.PreSetupNozl(opts.Port)
+		core.Core.InitSubscriptions()
+
+		retryCb := func() error {
+			peers := s.ActivePeers()
+			isLeader := s.JetStreamIsLeader()
+			isClustered := s.JetStreamIsClustered()
+
+			log := fmt.Sprintf("peers: %d leader: %t cluster mode: %t", len(peers), isLeader, isClustered)
+			s.Noticef(log)
+
+			if (len(peers) > 2 && isLeader) || !isClustered {
+				core.Core.InitStores()
+				return nil
+			}
+
+			return errors.New(log)	
+		}
+
+		err := retry.Do(retryCb, retry.Attempts(5), retry.Delay(2 * time.Second))
+
+		if err != nil {
+			s.Noticef(err.Error())
+		}
+
+		nozl.SetupNozl(opts.BackendHTTPPort)	
 	}
 }
 
