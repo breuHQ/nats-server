@@ -6,29 +6,21 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
-	"github.com/nats-io/nats-server/v2/nozl/filter"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
 	"github.com/nats-io/nats-server/v2/nozl/schema"
 	"github.com/nats-io/nats-server/v2/nozl/service"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
-	"github.com/nats-io/nats-server/v2/nozl/tenant"
 )
 
 type (
 	core struct {
-		Tenants     Tenants
-		Filters     Filters
-		MainLimiter *rate.Limiter
-		KVStore     nats.KeyValue
+		KVStore nats.KeyValue
 	}
 
-	Tenants map[uuid.UUID]tenant.Tenant
-	Filters map[string]filter.Filter
 	Subject string
 )
 
@@ -50,47 +42,25 @@ func (s Subject) String() string {
 	return string(s)
 }
 
-func (filters Filters) GetByID(id string) (filter.Filter, error) {
-	if fil, exists := filters[id]; exists {
-		return fil, nil
-	}
-
-	return nil, ErrFilterDoesNotExist
-}
-
-func (t Tenants) GetByID(id uuid.UUID) (*tenant.Tenant, error) {
-	if tnt, exists := t[id]; exists {
-		return &tnt, nil
-	}
-
-	return nil, ErrTenantDoesNotExist
-}
-
-// Initializes Core Module.
-func (c *core) InitializeCore(tokenRate int, initialBucketSize int) {
-	r := rate.Limit(tokenRate)
-	rl := rate.NewLimiter(r, initialBucketSize)
-	c.Tenants = make(map[uuid.UUID]tenant.Tenant)
-	c.Filters = make(map[string]filter.Filter)
-	c.MainLimiter = rl
-}
-
-// Initializes the Filter Service and the Main Limiter Service.
-func (c *core) Init() {
-	//TODO: Store user filters in nats KV store also
+func (c *core) InitSubscriptions() {
 	c.initFilter()
 	c.initMainLimiter()
-	c.initKVStore(shared.ServiceKV, "")
-	c.initKVStore(shared.TenantKV, "")
-	c.initKVStore(shared.UserKV, "")
-	c.initKVStore(shared.MsgWaitListKV, "")
-	c.initKVStore(shared.MsgLogKV, "")
-	c.initKVStore(shared.TenantAPIKV, "")
-	c.initKVStore(shared.SchemaKV, "")
-	c.initKVStore(shared.SchemaFileKV, "")
 }
 
-func (c *core) initKVStore(bucketName string, bucketDescription string) {
+func (c *core) InitStores(replicationFactor int) {
+	c.initKVStore(shared.ServiceKV, "", replicationFactor)
+	c.initKVStore(shared.TenantKV, "", replicationFactor)
+	c.initKVStore(shared.UserKV, "", replicationFactor)
+	c.initKVStore(shared.MsgWaitListKV, "", replicationFactor)
+	c.initKVStore(shared.MsgLogKV, "", replicationFactor)
+	c.initKVStore(shared.TenantAPIKV, "", replicationFactor)
+	c.initKVStore(shared.SchemaKV, "", replicationFactor)
+	c.initKVStore(shared.SchemaFileKV, "", replicationFactor)
+	c.initKVStore(shared.FilterLimiterKV, "", replicationFactor)
+	c.initKVStore(shared.MainLimiterKV, "", replicationFactor)
+}
+
+func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
 	kv, err := eventstream.Eventstream.CreateKeyValStore(bucketName, bucketDescription)
 
 	if err != nil {
@@ -122,35 +92,84 @@ func (c *core) Send(msg *eventstream.Message) {
 // TODO: Get limiter values from API.
 func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
 	userID := msg.ReqBody["user_id"].(string)
-	if val, exists := c.Filters[userID]; exists {
-		return val.Allow()
-	}
-
-	c.RegisterFilter(userID, shared.UserTokenRate, shared.UserBucketSize)
-
-	return c.Filters[userID].Allow()
-}
-
-func (c *core) RegisterFilter(userID string, tokenRate int, bucketSize int) uuid.UUID {
-	newFilter := filter.NewFilter(tokenRate, bucketSize, userID)
-	c.Filters[userID] = newFilter
-
-	return newFilter.GetID()
-}
-
-// Get Tenant details by providing its id.
-func (c *core) GetTenantDetailsByID(id uuid.UUID) (string, error) {
-	t, err := c.Tenants.GetByID(id)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.FilterLimiterKV)
 	if err != nil {
-		return "", err
+		shared.Logger.Error(err.Error())
+		return false
 	}
 
-	return t.GetDetails(), nil
+	flRaw, err := kv.Get(userID)
+	if err != nil {
+		c.RegisterFilter(kv, userID)
+		return true
+	}
+
+	fl := &rate.Limiter{}
+	err = json.Unmarshal(flRaw.Value(), fl)
+
+	allow := fl.Allow()
+	flUpdated, err := json.Marshal(fl)
+	_, err = kv.Put(userID, flUpdated)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return false
+	}
+
+	return allow
+}
+
+func (c *core) mainLimiterWait(msg *eventstream.Message) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MainLimiterKV)
+	if err != nil {
+		return err
+	}
+
+	mlRaw, err := kv.Get(msg.ServiceID)
+	if err != nil {
+		return err
+	}
+
+	ml := &rate.Limiter{}
+	err = json.Unmarshal(mlRaw.Value(), ml)
+
+	if err := ml.Wait(context.Background()); err != nil {
+		return err
+	}
+
+	mlUpdated, err := json.Marshal(ml)
+	if err != nil {
+		return err
+	}
+
+	_, err = kv.Put(msg.ServiceID, mlUpdated)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
+	newFilter := rate.NewLimiter(rate.Limit(shared.UserTokenRate), shared.UserBucketSize)
+	newFilter.Allow()
+	newFilterRaw, err := json.Marshal(newFilter)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return
+	}
+
+	_, err = kv.Put(userID, newFilterRaw)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return
+	}
+	return
 }
 
 func handleLimiter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
-		if err := c.MainLimiter.Wait(context.Background()); err != nil {
+
+		if err := c.mainLimiterWait(msg); err != nil {
 			shared.Logger.Error(err.Error())
 		}
 

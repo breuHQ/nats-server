@@ -100,6 +100,7 @@ func (n *eventstream) CreateKeyValStore(bucket string, description string) (nats
 	keyval, err := n.Stream.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      bucket,
 		Description: description,
+		Replicas: 3,
 	})
 	if err != nil {
 		shared.Logger.Error("Unable to create Key Value Store " + err.Error())

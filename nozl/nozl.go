@@ -18,15 +18,13 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/tenant"
 )
 
-func SetupNozl(backendPort string, natsPort int) {
-	// eventstream.Eventstream.ReadEnv()
+func PreSetupNozl(natsPort int) {
 	shared.InitializeLogger()
 	eventstream.Eventstream.SetupUrl(natsPort)
 	eventstream.Eventstream.InitializeNats()
-	core.Core.InitializeCore(shared.MainLimiterRate, shared.MainLimiterBucketSize)
+}
 
-	core.Core.Init()
-
+func SetupNozl(backendPort string) {
 	// Hack around ingress-gce not supporting rewrite-target.
 	// LINK: https://app.shortcut.com/breu/story/2859/helm-chart-for-nozl#activity-2871
 	prefix := getRoutingPrefix()

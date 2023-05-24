@@ -20,6 +20,8 @@ const (
 	MsgWaitListKV     string = "MsgWaitList"
 	SchemaKV          string = "schema"
 	SchemaFileKV      string = "SchemaFile"
+	FilterLimiterKV   string = "FilterLimter"
+	MainLimiterKV     string = "MainLimiter"
 	MsgLogKV          string = "MsgLog"
 	SenderPhoneNumber string = "+19034598701"
 )

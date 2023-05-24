@@ -6,12 +6,14 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
+	"github.com/nats-io/nats.go"
 )
 
 func GetMainLimiterRate(ctx echo.Context) error {
-	rateLimit := Core.MainLimiter.Limit()
+	rateLimit := shared.MainLimiterRate
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit": rateLimit,
@@ -33,8 +35,20 @@ func SetMainLimiterRate(ctx echo.Context) error {
 		})
 	}
 
-	Core.MainLimiter.SetLimit(rate.Limit(limit))
-	Core.MainLimiter.SetBurst(limit)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MainLimiterKV)
+	if err != nil {
+		return err
+	}
+
+	allKey, err := kv.Keys()
+	if err != nil {
+		return err
+	}
+
+	for _, key := range allKey {
+		updateLimitInLimiter(kv, key, limit)
+	}
+
 	shared.MainLimiterRate = limit
 	shared.MainLimiterBucketSize = limit
 
@@ -83,10 +97,35 @@ func SetFilterConf(ctx echo.Context) error {
 }
 
 func UpdateCurrFilterConf(limit int) error {
-	for _, fil := range Core.Filters {
-		fil.SetFilterLimit(limit)
-		fil.SetFilterBucketSize(limit)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.FilterLimiterKV)
+	if err != nil {
+		return err
+	}
+
+	allKey, err := kv.Keys()
+	if err != nil {
+		return err
+	}
+
+	for _, key := range allKey {
+		updateLimitInLimiter(kv, key, limit)
 	}
 
 	return nil
+}
+
+func updateLimitInLimiter(kv nats.KeyValue, key string, limit int) {
+	flRaw, _ := kv.Get(key)
+
+	fl := &rate.Limiter{}
+	err := json.Unmarshal(flRaw.Value(), fl)
+
+	fl.SetLimit(rate.Limit(limit))
+	fl.SetBurst(limit)
+
+	flUpdated, err := json.Marshal(fl)
+	_, err = kv.Put(key, flUpdated)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 }
