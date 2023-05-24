@@ -42,11 +42,12 @@ func (s Subject) String() string {
 	return string(s)
 }
 
-// Initializes the Core Module
-func (c *core) Init() {
-	//TODO: Store user filters in nats KV store also
+func (c *core) InitSubscriptions() {
 	c.initFilter()
 	c.initMainLimiter()
+}
+
+func (c *core) InitStores() {
 	c.initKVStore(shared.ServiceKV, "")
 	c.initKVStore(shared.TenantKV, "")
 	c.initKVStore(shared.UserKV, "")
