@@ -1962,6 +1962,8 @@ func (s *Server) Start() {
 	}
 
 	if opts.BackendHTTPPort != _EMPTY_ {
+		rf := opts.ReplicationFactor
+		s.Noticef("replication factor %d", rf)
 
 		nozl.PreSetupNozl(opts.Port)
 		core.Core.InitSubscriptions()
@@ -1975,20 +1977,20 @@ func (s *Server) Start() {
 			s.Noticef(log)
 
 			if (len(peers) > 2 && isLeader) || !isClustered {
-				core.Core.InitStores()
+				core.Core.InitStores(rf)
 				return nil
 			}
 
-			return errors.New(log)	
+			return errors.New(log)
 		}
 
-		err := retry.Do(retryCb, retry.Attempts(5), retry.Delay(2 * time.Second))
+		err := retry.Do(retryCb, retry.Attempts(5), retry.Delay(2*time.Second))
 
 		if err != nil {
 			s.Noticef(err.Error())
 		}
 
-		nozl.SetupNozl(opts.BackendHTTPPort)	
+		nozl.SetupNozl(opts.BackendHTTPPort)
 	}
 }
 

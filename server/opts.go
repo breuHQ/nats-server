@@ -343,6 +343,10 @@ type Options struct {
 
 	// Backend server for authentication & authorization
 	BackendHTTPPort string // `json:"backend_http_port"`
+
+	// Replication factor for setting creating JS buckets
+	// default value is 1
+	ReplicationFactor int 
 }
 
 // WebsocketOpts are options for websocket
@@ -4738,6 +4742,8 @@ func ConfigureOptions(fs *flag.FlagSet, args []string, printVersion, printHelp, 
 	fs.StringVar(&opts.StoreDir, "store_dir", "", "Storage directory.")
 	fs.StringVar(&opts.BackendHTTPPort, "backend_port", "1323", "HTTP port for backend server.")
 	fs.StringVar(&opts.BackendHTTPPort, "bp", "1323", "HTTP port for backend server.")
+	fs.IntVar(&opts.ReplicationFactor, "replication-factor", 1, "Specify replication factor JS buckets. Default value is 1")
+	fs.IntVar(&opts.ReplicationFactor, "rf", 1, "Specify replication factor JS buckets. Default value is 1")
 
 	// The flags definition above set "default" values to some of the options.
 	// Calling Parse() here will override the default options with any value

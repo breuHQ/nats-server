@@ -47,20 +47,20 @@ func (c *core) InitSubscriptions() {
 	c.initMainLimiter()
 }
 
-func (c *core) InitStores() {
-	c.initKVStore(shared.ServiceKV, "")
-	c.initKVStore(shared.TenantKV, "")
-	c.initKVStore(shared.UserKV, "")
-	c.initKVStore(shared.MsgWaitListKV, "")
-	c.initKVStore(shared.MsgLogKV, "")
-	c.initKVStore(shared.TenantAPIKV, "")
-	c.initKVStore(shared.SchemaKV, "")
-	c.initKVStore(shared.SchemaFileKV, "")
-	c.initKVStore(shared.FilterLimiterKV, "")
-	c.initKVStore(shared.MainLimiterKV, "")
+func (c *core) InitStores(replicationFactor int) {
+	c.initKVStore(shared.ServiceKV, "", replicationFactor)
+	c.initKVStore(shared.TenantKV, "", replicationFactor)
+	c.initKVStore(shared.UserKV, "", replicationFactor)
+	c.initKVStore(shared.MsgWaitListKV, "", replicationFactor)
+	c.initKVStore(shared.MsgLogKV, "", replicationFactor)
+	c.initKVStore(shared.TenantAPIKV, "", replicationFactor)
+	c.initKVStore(shared.SchemaKV, "", replicationFactor)
+	c.initKVStore(shared.SchemaFileKV, "", replicationFactor)
+	c.initKVStore(shared.FilterLimiterKV, "", replicationFactor)
+	c.initKVStore(shared.MainLimiterKV, "", replicationFactor)
 }
 
-func (c *core) initKVStore(bucketName string, bucketDescription string) {
+func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
 	kv, err := eventstream.Eventstream.CreateKeyValStore(bucketName, bucketDescription)
 
 	if err != nil {
