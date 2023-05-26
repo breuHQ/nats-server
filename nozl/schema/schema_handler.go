@@ -49,13 +49,13 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	})
 }
 
-func DeleteSchemaFile(fileID string) error{
+func DeleteSchemaFile(fileID string) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV store!")
 		return err
 	}
-	
+
 	_, err = kv.Get(fileID)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
@@ -102,7 +102,7 @@ func DeleteStoredOperations(serviceID string, fileID string) error {
 		if schemaVal.File.FileID == fileID && schemaVal.File.ServiceID == serviceID {
 			kv.Delete(key)
 		}
-		
+
 	}
 	return nil
 }
@@ -137,4 +137,44 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Open API file deleted successfully",
 	})
+}
+
+func GetAllOpenApiSpecHandler(ctx echo.Context) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in retreiving schema files",
+		})
+	}
+
+	openapiFileList := []SchemaFile{}
+	allKeys, err := kv.Keys()
+
+	// If there are no keys, return empty list?
+	// If there are no keys, Keys() returns error. and err != nil
+	// TODO: Maybe remove empty list here with StatusOK
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in retreiving schema files",
+		})
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Error in retreiving schema files",
+			})
+		}
+
+		schemaFile := new(SchemaFile)
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Error in retreiving schema files",
+			})
+		}
+
+		openapiFileList = append(openapiFileList, *schemaFile)
+	}
+	return ctx.JSON(http.StatusOK, openapiFileList)
 }

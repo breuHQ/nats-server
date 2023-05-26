@@ -74,6 +74,7 @@ func SetupNozl(backendPort string) {
 
 		backendAPIGroup.POST("/schema/upload", schema.UploadOpenApiSpecHandler)
 		backendAPIGroup.DELETE("/schema", schema.DeleteOpenApiSpecHandler)
+		backendAPIGroup.GET("/schema", schema.GetAllOpenApiSpecHandler)
 
 		backendAPIGroup.GET("", auth.RestrictedHandler)
 	}
