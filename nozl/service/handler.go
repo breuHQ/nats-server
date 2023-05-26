@@ -23,11 +23,9 @@ func CreateServiceHandler(ctx echo.Context) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 
 	if err != nil {
-		if kv, err = eventstream.Eventstream.CreateKeyValStore(shared.ServiceKV, ""); err != nil {
-			return ctx.JSON(http.StatusInternalServerError, echo.Map{
-				"message": "Unable to create new bucket for service",
-			})
-		}
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Service KV store not found",
+		})
 	}
 
 	keys, err := kv.Keys()

@@ -96,11 +96,11 @@ func (n *eventstream) PublishMessage(subject string, msg string) {
 	shared.Logger.Info("Message '" + msg + "' published successfully")
 }
 
-func (n *eventstream) CreateKeyValStore(bucket string, description string) (nats.KeyValue, error) {
+func (n *eventstream) CreateKeyValStore(bucket string, description string, replicationFactor int) (nats.KeyValue, error) {
 	keyval, err := n.Stream.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      bucket,
 		Description: description,
-		Replicas: 3,
+		Replicas: replicationFactor,
 	})
 	if err != nil {
 		shared.Logger.Error("Unable to create Key Value Store " + err.Error())

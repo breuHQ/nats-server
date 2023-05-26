@@ -61,7 +61,7 @@ func (c *core) InitStores(replicationFactor int) {
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
-	kv, err := eventstream.Eventstream.CreateKeyValStore(bucketName, bucketDescription)
+	kv, err := eventstream.Eventstream.CreateKeyValStore(bucketName, bucketDescription, replicationFactor)
 
 	if err != nil {
 		shared.Logger.Error(err.Error())
@@ -191,9 +191,9 @@ func handleFilter(c *core) nats.Handler {
 			// TODO: Decide later if this message should be sent to dead letter queue
 			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
 				Allow:  false,
-				Reason: string(err.Error()),
+				Reason: string(err.Error()), // TODO: return schema specific error
 			}
-			shared.Logger.Error(err.Error())
+			shared.Logger.Error(err.Error()) 
 			return
 		}
 		if c.filterLimiterAllow(msg) {
