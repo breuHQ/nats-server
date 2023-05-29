@@ -22,6 +22,7 @@ const (
 	SchemaFileKV      string = "SchemaFile"
 	FilterLimiterKV   string = "FilterLimter"
 	MainLimiterKV     string = "MainLimiter"
+	ConfigKV          string = "Configuration"
 	MsgLogKV          string = "MsgLog"
 	SenderPhoneNumber string = "+19034598701"
 )

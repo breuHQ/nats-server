@@ -58,6 +58,7 @@ func (c *core) InitStores(replicationFactor int) {
 	c.initKVStore(shared.SchemaFileKV, "", replicationFactor)
 	c.initKVStore(shared.FilterLimiterKV, "", replicationFactor)
 	c.initKVStore(shared.MainLimiterKV, "", replicationFactor)
+	c.initKVStore(shared.ConfigKV, "", replicationFactor)
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
