@@ -11,13 +11,36 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
+func serviceIDExists(serviceID string) bool {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false
+	}
+
+	if _, err := kv.Get(serviceID); err != nil {
+		shared.Logger.Error("Failed to retreive value from KV store!")
+		return false
+	}
+
+	return true
+}
+
 func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	serviceID := ctx.FormValue("service_id")
-	fileName := ctx.FormValue("file_name")
 	file, err := ctx.FormFile("file")
-	if err != nil {
+
+	fileName := file.Filename
+
+	if err != nil || serviceID == "" || fileName == "" {
 		return ctx.JSON(http.StatusBadRequest, echo.Map{
 			"message": "File Upload Error",
+		})
+	}
+
+	if !serviceIDExists(serviceID) {
+		return ctx.JSON(http.StatusBadRequest, echo.Map{
+			"message": "Service ID does not exist",
 		})
 	}
 
