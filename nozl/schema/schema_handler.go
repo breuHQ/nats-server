@@ -150,13 +150,10 @@ func GetAllOpenApiSpecHandler(ctx echo.Context) error {
 	openapiFileList := []SchemaFile{}
 	allKeys, err := kv.Keys()
 
-	// If there are no keys, return empty list?
-	// If there are no keys, Keys() returns error. and err != nil
-	// TODO: Maybe remove empty list here with StatusOK
+	// If there are no keys, return empty list
+	// This might not be the best way to handle this
 	if err != nil {
-		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Error in retreiving schema files",
-		})
+		return ctx.JSON(http.StatusOK, openapiFileList)
 	}
 
 	for _, key := range allKeys {
