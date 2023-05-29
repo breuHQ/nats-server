@@ -1978,6 +1978,7 @@ func (s *Server) Start() {
 
 			if (len(peers) > 2 && isLeader) || !isClustered {
 				core.Core.InitStores(rf)
+				core.Core.InitConf()
 				return nil
 			}
 

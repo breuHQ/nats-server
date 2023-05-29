@@ -61,6 +61,14 @@ func (c *core) InitStores(replicationFactor int) {
 	c.initKVStore(shared.ConfigKV, "", replicationFactor)
 }
 
+func (c *core) InitConf() {
+	_, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+	return
+}
+
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
 	kv, err := eventstream.Eventstream.CreateKeyValStore(bucketName, bucketDescription, replicationFactor)
 
