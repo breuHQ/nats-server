@@ -26,6 +26,39 @@ func serviceIDExists(serviceID string) bool {
 	return true
 }
 
+func fileExists(fileName string, serviceID string) (bool, error) {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false, err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false, err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive value from KV store!")
+			return false, err
+		}
+
+		var schemaFile SchemaFile
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return false, err
+		}
+
+		if schemaFile.FileName == fileName && schemaFile.ServiceID == serviceID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	serviceID := ctx.FormValue("service_id")
 	file, err := ctx.FormFile("file")
@@ -41,6 +74,16 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	if !serviceIDExists(serviceID) {
 		return ctx.JSON(http.StatusBadRequest, echo.Map{
 			"message": "Service ID does not exist",
+		})
+	}
+
+	if exists, err := fileExists(fileName, serviceID); err != nil && !exists {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in checking file existence",
+		})
+	} else if exists {
+		return ctx.JSON(http.StatusBadRequest, echo.Map{
+			"message": "File already exists",
 		})
 	}
 
