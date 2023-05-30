@@ -41,10 +41,22 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, up
 		return err
 	}
 
-	schemaFile, err := AddSchemaFile(serviceID, fileName)
-	if err != nil {
-		shared.Logger.Error("Failed to add schemaDetails to KV store!")
-		return err
+	var schemaFile SchemaFile;
+	
+	if !updateOperations {
+		schemaFileNew, err := AddSchemaFile(serviceID, fileName)
+		if err != nil {
+			shared.Logger.Error("Failed to add schemaDetails to KV store!")
+			return err
+		}
+		schemaFile = schemaFileNew
+	} else {
+		schemaFileNew, err := GetSchemaFile(serviceID, fileName)
+		if err != nil {
+			shared.Logger.Error("Failed to Get schemaDetails from KV store!")
+			return err
+		}
+		schemaFile = schemaFileNew
 	}
 
 	for pathKey, pathValue := range doc.Paths {

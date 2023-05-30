@@ -43,3 +43,37 @@ func AddSchemaFile(serviceID string, fileName string) (SchemaFile, error) {
 	}
 	return schemaDetails, nil
 }
+
+func GetSchemaFile(serviceID string, fileName string) (SchemaFile, error) {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return SchemaFile{}, err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return SchemaFile{}, err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive value from KV store!")
+			return SchemaFile{}, err
+		}
+
+		var schemaFile SchemaFile
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return SchemaFile{}, err
+		}
+
+		if schemaFile.FileName == fileName && schemaFile.ServiceID == serviceID {
+			return schemaFile, nil
+		}
+	}
+
+	return SchemaFile{}, nil
+}
