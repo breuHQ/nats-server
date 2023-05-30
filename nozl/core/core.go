@@ -180,7 +180,7 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 	confKeyAll := []string{shared.UserTokenRate, shared.UserBucketSize}
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, confKeyAll)
 	TokenRate, _ := strconv.Atoi(string(confMap[shared.UserTokenRate]))
 	BucketSize, _ := strconv.Atoi(string(confMap[shared.UserBucketSize]))
 

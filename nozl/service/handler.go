@@ -82,7 +82,7 @@ func addMainLimitertoKVStore(serv *Service) {
 	}
 
 	confKeyAll := []string{shared.MainLimiterRate, shared.MainLimiterBucketSize}
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, confKeyAll)
 	TokenRate, err := strconv.Atoi(string(confMap[shared.MainLimiterRate]))
 	if err != nil {
 		shared.Logger.Error(err.Error())

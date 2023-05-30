@@ -13,7 +13,7 @@ import (
 )
 
 func GetMainLimiterConf(ctx echo.Context) error {
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.MainLimiterRate, shared.MainLimiterBucketSize})
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, []string{shared.MainLimiterRate, shared.MainLimiterBucketSize})
 	rateLimit, err := strconv.Atoi(string(confMap[shared.MainLimiterRate]))
 	if err != nil {
 		shared.Logger.Error(err.Error())
@@ -81,7 +81,7 @@ func SetMainLimiterRate(ctx echo.Context) error {
 }
 
 func GetFilterConf(ctx echo.Context) error {
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.UserTokenRate, shared.UserBucketSize})
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, []string{shared.UserTokenRate, shared.UserBucketSize})
 	rateLimit, err := strconv.Atoi(string(confMap[shared.UserTokenRate]))
 	if err != nil {
 		shared.Logger.Error(err.Error())
