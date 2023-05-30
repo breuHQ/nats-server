@@ -67,24 +67,24 @@ func (c *core) InitConf() {
 		shared.Logger.Error(err.Error())
 	}
 
-	_, err = kv.Get(shared.UserTokenRateTemp)
+	_, err = kv.Get(shared.UserTokenRate)
 	if err != nil {
-		kv.Put(shared.UserTokenRateTemp, []byte("1"))
+		kv.Put(shared.UserTokenRate, []byte("1"))
 	}
 
-	_, err = kv.Get(shared.UserBucketSizeTemp)
+	_, err = kv.Get(shared.UserBucketSize)
 	if err != nil {
-		kv.Put(shared.UserBucketSizeTemp, []byte("1"))
+		kv.Put(shared.UserBucketSize, []byte("1"))
 	}
 
-	_, err = kv.Get(shared.MainLimiterRateTemp)
+	_, err = kv.Get(shared.MainLimiterRate)
 	if err != nil {
-		kv.Put(shared.MainLimiterRateTemp, []byte("1"))
+		kv.Put(shared.MainLimiterRate, []byte("1"))
 	}
 
-	_, err = kv.Get(shared.MainLimiterBucketSizeTemp)
+	_, err = kv.Get(shared.MainLimiterBucketSize)
 	if err != nil {
-		kv.Put(shared.MainLimiterBucketSizeTemp, []byte("1"))
+		kv.Put(shared.MainLimiterBucketSize, []byte("1"))
 	}
 }
 
@@ -178,10 +178,10 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 }
 
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
-	confKeyAll := []string{shared.UserTokenRateTemp, shared.UserBucketSizeTemp}
+	confKeyAll := []string{shared.UserTokenRate, shared.UserBucketSize}
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
-	TokenRate := confMap[shared.UserTokenRateTemp]
-	BucketSize := confMap[shared.UserBucketSizeTemp]
+	TokenRate := confMap[shared.UserTokenRate]
+	BucketSize := confMap[shared.UserBucketSize]
 
 	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilter.Allow()

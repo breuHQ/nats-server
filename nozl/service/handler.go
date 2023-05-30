@@ -80,10 +80,10 @@ func addMainLimitertoKVStore(serv *Service) {
 		shared.Logger.Error(err.Error())
 	}
 
-	confKeyAll := []string{shared.MainLimiterRateTemp, shared.MainLimiterBucketSizeTemp}
+	confKeyAll := []string{shared.MainLimiterRate, shared.MainLimiterBucketSize}
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
-	TokenRate := confMap[shared.MainLimiterRateTemp]
-	BucketSize := confMap[shared.MainLimiterBucketSizeTemp]
+	TokenRate := confMap[shared.MainLimiterRate]
+	BucketSize := confMap[shared.MainLimiterBucketSize]
 
 	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilterRaw, err := json.Marshal(newFilter)

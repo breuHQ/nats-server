@@ -13,9 +13,9 @@ import (
 )
 
 func GetMainLimiterConf(ctx echo.Context) error {
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.MainLimiterRateTemp, shared.MainLimiterBucketSizeTemp})
-	rateLimit := confMap[shared.MainLimiterRateTemp]
-	bucketSize := confMap[shared.MainLimiterBucketSizeTemp]
+	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.MainLimiterRate, shared.MainLimiterBucketSize})
+	rateLimit := confMap[shared.MainLimiterRate]
+	bucketSize := confMap[shared.MainLimiterBucketSize]
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,
@@ -57,8 +57,8 @@ func SetMainLimiterRate(ctx echo.Context) error {
 		shared.Logger.Error(err.Error())
 	}
 
-	kv.Put(shared.MainLimiterRateTemp, []byte(payload["limit"]))
-	kv.Put(shared.MainLimiterBucketSizeTemp, []byte(payload["limit"]))
+	kv.Put(shared.MainLimiterRate, []byte(payload["limit"]))
+	kv.Put(shared.MainLimiterBucketSize, []byte(payload["limit"]))
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Main Limit updated",
@@ -66,9 +66,9 @@ func SetMainLimiterRate(ctx echo.Context) error {
 }
 
 func GetFilterConf(ctx echo.Context) error {
-	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.UserTokenRateTemp, shared.UserBucketSizeTemp})
-	rateLimit := confMap[shared.UserTokenRateTemp]
-	bucketSize := confMap[shared.UserBucketSizeTemp]
+	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.UserTokenRate, shared.UserBucketSize})
+	rateLimit := confMap[shared.UserTokenRate]
+	bucketSize := confMap[shared.UserBucketSize]
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,
@@ -96,8 +96,8 @@ func SetFilterConf(ctx echo.Context) error {
 		shared.Logger.Error(err.Error())
 	}
 
-	kv.Put(shared.UserTokenRateTemp, []byte(payload["limit"]))
-	kv.Put(shared.UserBucketSizeTemp, []byte(payload["limit"]))
+	kv.Put(shared.UserTokenRate, []byte(payload["limit"]))
+	kv.Put(shared.UserBucketSize, []byte(payload["limit"]))
 
 	if err := UpdateCurrFilterConf(limit); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
