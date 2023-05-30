@@ -12,11 +12,14 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func GetMainLimiterRate(ctx echo.Context) error {
-	rateLimit := shared.MainLimiterRate
+func GetMainLimiterConf(ctx echo.Context) error {
+	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.MainLimiterRateTemp, shared.MainLimiterBucketSizeTemp})
+	rateLimit := confMap[shared.MainLimiterRateTemp]
+	bucketSize := confMap[shared.MainLimiterBucketSizeTemp]
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"limit": rateLimit,
+		"limit":       rateLimit,
+		"bucket_size": bucketSize,
 	})
 }
 
@@ -49,8 +52,13 @@ func SetMainLimiterRate(ctx echo.Context) error {
 		updateLimitInLimiter(kv, key, limit)
 	}
 
-	shared.MainLimiterRate = limit
-	shared.MainLimiterBucketSize = limit
+	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	kv.Put(shared.MainLimiterRateTemp, []byte(payload["limit"]))
+	kv.Put(shared.MainLimiterBucketSizeTemp, []byte(payload["limit"]))
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Main Limit updated",
@@ -58,8 +66,9 @@ func SetMainLimiterRate(ctx echo.Context) error {
 }
 
 func GetFilterConf(ctx echo.Context) error {
-	rateLimit := shared.UserTokenRate
-	bucketSize := shared.UserBucketSize
+	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.UserTokenRateTemp, shared.UserBucketSizeTemp})
+	rateLimit := confMap[shared.UserTokenRateTemp]
+	bucketSize := confMap[shared.UserBucketSizeTemp]
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,
@@ -82,8 +91,13 @@ func SetFilterConf(ctx echo.Context) error {
 		})
 	}
 
-	shared.UserTokenRate = limit
-	shared.UserBucketSize = limit
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	kv.Put(shared.UserTokenRateTemp, []byte(payload["limit"]))
+	kv.Put(shared.UserBucketSizeTemp, []byte(payload["limit"]))
 
 	if err := UpdateCurrFilterConf(limit); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
