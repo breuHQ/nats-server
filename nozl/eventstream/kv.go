@@ -4,6 +4,8 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
+// Function to that take in the KV store name and the name of keys that want to be
+// retrieved. It then iterates over those keys and returns their values as a map
 func GetMultValIntKVstore(KVstoreName string, keyAll []string) map[string][]byte {
 	valMap := make(map[string][]byte)
 	kv, err := Eventstream.RetreiveKeyValStore(KVstoreName)
