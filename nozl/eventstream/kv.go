@@ -1,13 +1,11 @@
 package eventstream
 
 import (
-	"strconv"
-
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
-func GetMultValIntKVstore(KVstoreName string, keyAll []string) map[string]int {
-	valMap := make(map[string]int)
+func GetMultValIntKVstore(KVstoreName string, keyAll []string) map[string][]byte {
+	valMap := make(map[string][]byte)
 	kv, err := Eventstream.RetreiveKeyValStore(KVstoreName)
 	if err != nil {
 		shared.Logger.Error(err.Error())
@@ -19,10 +17,7 @@ func GetMultValIntKVstore(KVstoreName string, keyAll []string) map[string]int {
 			shared.Logger.Error(err.Error())
 		}
 
-		valMap[val], err = strconv.Atoi(string(byteVal.Value()))
-		if err != nil {
-			shared.Logger.Error(err.Error())
-		}
+		valMap[val] = byteVal.Value()
 	}
 	return valMap
 }

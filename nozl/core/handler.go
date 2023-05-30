@@ -14,8 +14,21 @@ import (
 
 func GetMainLimiterConf(ctx echo.Context) error {
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.MainLimiterRate, shared.MainLimiterBucketSize})
-	rateLimit := confMap[shared.MainLimiterRate]
-	bucketSize := confMap[shared.MainLimiterBucketSize]
+	rateLimit, err := strconv.Atoi(string(confMap[shared.MainLimiterRate]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert rateLimit value to int",
+		})
+	}
+
+	bucketSize, err := strconv.Atoi(string(confMap[shared.MainLimiterBucketSize]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert bucketSize value to int",
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,
@@ -69,8 +82,21 @@ func SetMainLimiterRate(ctx echo.Context) error {
 
 func GetFilterConf(ctx echo.Context) error {
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, []string{shared.UserTokenRate, shared.UserBucketSize})
-	rateLimit := confMap[shared.UserTokenRate]
-	bucketSize := confMap[shared.UserBucketSize]
+	rateLimit, err := strconv.Atoi(string(confMap[shared.UserTokenRate]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert rateLimit value to int",
+		})
+	}
+
+	bucketSize, err := strconv.Atoi(string(confMap[shared.UserBucketSize]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert bucketSize value to int",
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,

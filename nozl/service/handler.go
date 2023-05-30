@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
@@ -82,8 +83,15 @@ func addMainLimitertoKVStore(serv *Service) {
 
 	confKeyAll := []string{shared.MainLimiterRate, shared.MainLimiterBucketSize}
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
-	TokenRate := confMap[shared.MainLimiterRate]
-	BucketSize := confMap[shared.MainLimiterBucketSize]
+	TokenRate, err := strconv.Atoi(string(confMap[shared.MainLimiterRate]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	BucketSize, err := strconv.Atoi(string(confMap[shared.MainLimiterBucketSize]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
 	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilterRaw, err := json.Marshal(newFilter)

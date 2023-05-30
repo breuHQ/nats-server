@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -180,8 +181,8 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 	confKeyAll := []string{shared.UserTokenRate, shared.UserBucketSize}
 	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
-	TokenRate := confMap[shared.UserTokenRate]
-	BucketSize := confMap[shared.UserBucketSize]
+	TokenRate, _ := strconv.Atoi(string(confMap[shared.UserTokenRate]))
+	BucketSize, _ := strconv.Atoi(string(confMap[shared.UserBucketSize]))
 
 	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilter.Allow()
