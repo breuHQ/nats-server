@@ -62,11 +62,15 @@ func (c *core) InitStores(replicationFactor int) {
 }
 
 func (c *core) InitConf() {
-	_, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
 	}
-	return
+
+	kv.Put(shared.UserTokenRateTemp, []byte("1"))
+	kv.Put(shared.UserBucketSizeTemp, []byte(("1")))
+	kv.Put(shared.MainLimiterRateTemp, []byte(("1")))
+	kv.Put(shared.MainLimiterBucketSizeTemp, []byte(("1")))
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
@@ -202,7 +206,7 @@ func handleFilter(c *core) nats.Handler {
 				Allow:  false,
 				Reason: string(err.Error()), // TODO: return schema specific error
 			}
-			shared.Logger.Error(err.Error()) 
+			shared.Logger.Error(err.Error())
 			return
 		}
 		if c.filterLimiterAllow(msg) {

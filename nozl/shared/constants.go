@@ -13,18 +13,22 @@ func getEnvs() map[string]string {
 }
 
 const (
-	ServiceKV         string = "Service"
-	TenantKV          string = "Tenant"
-	TenantAPIKV       string = "TenanatApiKey"
-	UserKV            string = "User"
-	MsgWaitListKV     string = "MsgWaitList"
-	SchemaKV          string = "schema"
-	SchemaFileKV      string = "SchemaFile"
-	FilterLimiterKV   string = "FilterLimter"
-	MainLimiterKV     string = "MainLimiter"
-	ConfigKV          string = "Configuration"
-	MsgLogKV          string = "MsgLog"
-	SenderPhoneNumber string = "+19034598701"
+	ServiceKV                 string = "Service"
+	TenantKV                  string = "Tenant"
+	TenantAPIKV               string = "TenanatApiKey"
+	UserKV                    string = "User"
+	MsgWaitListKV             string = "MsgWaitList"
+	SchemaKV                  string = "schema"
+	SchemaFileKV              string = "SchemaFile"
+	FilterLimiterKV           string = "FilterLimter"
+	MainLimiterKV             string = "MainLimiter"
+	ConfigKV                  string = "Configuration"
+	MsgLogKV                  string = "MsgLog"
+	SenderPhoneNumber         string = "+19034598701"
+	UserTokenRateTemp         string = "UserTokenRate"
+	UserBucketSizeTemp        string = "UserBucketSize"
+	MainLimiterRateTemp       string = "MainLimiterRate"
+	MainLimiterBucketSizeTemp string = "MainLimiterBucketSize"
 )
 
 var (
