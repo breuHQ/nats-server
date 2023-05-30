@@ -163,7 +163,12 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 }
 
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
-	newFilter := rate.NewLimiter(rate.Limit(shared.UserTokenRate), shared.UserBucketSize)
+	confKeyAll := []string{shared.UserTokenRateTemp, shared.UserBucketSizeTemp}
+	confMap := eventstream.GetMultValIntKVstore(shared.ConfigKV, confKeyAll)
+	TokenRate := confMap[shared.UserTokenRateTemp]
+	BucketSize := confMap[shared.UserBucketSizeTemp]
+
+	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilter.Allow()
 	newFilterRaw, err := json.Marshal(newFilter)
 	if err != nil {
