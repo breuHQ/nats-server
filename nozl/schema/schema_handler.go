@@ -76,15 +76,14 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 			"message": "Service ID does not exist",
 		})
 	}
+	updateOperations := false
 
 	if exists, err := fileExists(fileName, serviceID); err != nil && !exists {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Error in checking file existence",
 		})
 	} else if exists {
-		return ctx.JSON(http.StatusBadRequest, echo.Map{
-			"message": "File already exists",
-		})
+		updateOperations = true
 	}
 
 	openApiFile, err := file.Open()
@@ -104,7 +103,7 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	if err = ParseOpenApiV3Schema(serviceID, buf.Bytes(), fileName); err != nil {
+	if err = ParseOpenApiV3Schema(serviceID, buf.Bytes(), fileName, updateOperations); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Error in parsing file",
 		})

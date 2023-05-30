@@ -33,7 +33,7 @@ func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 	}
 }
 
-func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) error {
+func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, updateOperations bool) error {
 	doc, err := openapi3.NewLoader().LoadFromData(specFile)
 
 	if err != nil {
@@ -51,19 +51,19 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string) er
 		baseUrl := pathValue.Servers[0].URL
 
 		if pathValue.Get != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, baseUrl, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Post != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, baseUrl, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Put != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, baseUrl, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Patch != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, baseUrl, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Delete != nil {
-			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, baseUrl, schemaFile)
+			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, baseUrl, schemaFile, updateOperations)
 		}
 	}
 	return nil
@@ -105,14 +105,25 @@ func stringInSlice(refStr string, list []string) bool {
 	return false
 }
 
-func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, baseUrl string, schemaFile SchemaFile) {
+func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, operation *openapi3.Operation, baseUrl string, schemaFile SchemaFile, updateOperations bool) {
 	schemaKv, _ := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	MakeOptionalFieldsNullable(operation)
 	currSchema := newSchema(pathKey, httpMethod, operation, baseUrl, schemaFile)
 	operationID := operation.OperationID
 	jsonPayload, _ := json.Marshal(currSchema)
 
-	schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
+	if updateOperations {
+		kv, err := schemaKv.Get(fmt.Sprintf("%s-%s", serviceID, operationID))
+		if err != nil {
+			shared.Logger.Error(err.Error())
+			return
+		}
+
+		revision := kv.Revision()
+		schemaKv.Update(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload, revision)
+	} else {
+		schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
+	}
 }
 
 func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
