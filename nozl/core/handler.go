@@ -54,7 +54,9 @@ func SetMainLimiterRate(ctx echo.Context) error {
 
 	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
 	if err != nil {
-		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to retrieve Configuration key value store",
+		})
 	}
 
 	kv.Put(shared.MainLimiterRate, []byte(payload["limit"]))
@@ -93,7 +95,9 @@ func SetFilterConf(ctx echo.Context) error {
 
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
 	if err != nil {
-		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to retrieve Configuration key value store",
+		})
 	}
 
 	kv.Put(shared.UserTokenRate, []byte(payload["limit"]))
