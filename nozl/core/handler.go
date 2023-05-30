@@ -12,11 +12,27 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func GetMainLimiterRate(ctx echo.Context) error {
-	rateLimit := shared.MainLimiterRate
+func GetMainLimiterConf(ctx echo.Context) error {
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, []string{shared.MainLimiterRate, shared.MainLimiterBucketSize})
+	rateLimit, err := strconv.Atoi(string(confMap[shared.MainLimiterRate]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert rateLimit value to int",
+		})
+	}
+
+	bucketSize, err := strconv.Atoi(string(confMap[shared.MainLimiterBucketSize]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert bucketSize value to int",
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"limit": rateLimit,
+		"limit":       rateLimit,
+		"bucket_size": bucketSize,
 	})
 }
 
@@ -49,8 +65,15 @@ func SetMainLimiterRate(ctx echo.Context) error {
 		updateLimitInLimiter(kv, key, limit)
 	}
 
-	shared.MainLimiterRate = limit
-	shared.MainLimiterBucketSize = limit
+	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to retrieve Configuration key value store",
+		})
+	}
+
+	kv.Put(shared.MainLimiterRate, []byte(payload["limit"]))
+	kv.Put(shared.MainLimiterBucketSize, []byte(payload["limit"]))
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Main Limit updated",
@@ -58,8 +81,22 @@ func SetMainLimiterRate(ctx echo.Context) error {
 }
 
 func GetFilterConf(ctx echo.Context) error {
-	rateLimit := shared.UserTokenRate
-	bucketSize := shared.UserBucketSize
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, []string{shared.UserTokenRate, shared.UserBucketSize})
+	rateLimit, err := strconv.Atoi(string(confMap[shared.UserTokenRate]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert rateLimit value to int",
+		})
+	}
+
+	bucketSize, err := strconv.Atoi(string(confMap[shared.UserBucketSize]))
+	if err != nil {
+		shared.Logger.Error(err.Error())
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to convert bucketSize value to int",
+		})
+	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"limit":       rateLimit,
@@ -82,8 +119,15 @@ func SetFilterConf(ctx echo.Context) error {
 		})
 	}
 
-	shared.UserTokenRate = limit
-	shared.UserBucketSize = limit
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to retrieve Configuration key value store",
+		})
+	}
+
+	kv.Put(shared.UserTokenRate, []byte(payload["limit"]))
+	kv.Put(shared.UserBucketSize, []byte(payload["limit"]))
 
 	if err := UpdateCurrFilterConf(limit); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{

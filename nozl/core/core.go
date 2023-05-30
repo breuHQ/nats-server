@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -58,6 +59,34 @@ func (c *core) InitStores(replicationFactor int) {
 	c.initKVStore(shared.SchemaFileKV, "", replicationFactor)
 	c.initKVStore(shared.FilterLimiterKV, "", replicationFactor)
 	c.initKVStore(shared.MainLimiterKV, "", replicationFactor)
+	c.initKVStore(shared.ConfigKV, "", replicationFactor)
+}
+
+func (c *core) InitConf() {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ConfigKV)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	_, err = kv.Get(shared.UserTokenRate)
+	if err != nil {
+		kv.Put(shared.UserTokenRate, []byte(shared.TokenRateDefault))
+	}
+
+	_, err = kv.Get(shared.UserBucketSize)
+	if err != nil {
+		kv.Put(shared.UserBucketSize, []byte(shared.BucketSizeDefault))
+	}
+
+	_, err = kv.Get(shared.MainLimiterRate)
+	if err != nil {
+		kv.Put(shared.MainLimiterRate, []byte(shared.TokenRateDefault))
+	}
+
+	_, err = kv.Get(shared.MainLimiterBucketSize)
+	if err != nil {
+		kv.Put(shared.MainLimiterBucketSize, []byte(shared.BucketSizeDefault))
+	}
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
@@ -150,7 +179,12 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 }
 
 func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
-	newFilter := rate.NewLimiter(rate.Limit(shared.UserTokenRate), shared.UserBucketSize)
+	confKeyAll := []string{shared.UserTokenRate, shared.UserBucketSize}
+	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, confKeyAll)
+	TokenRate, _ := strconv.Atoi(string(confMap[shared.UserTokenRate]))
+	BucketSize, _ := strconv.Atoi(string(confMap[shared.UserBucketSize]))
+
+	newFilter := rate.NewLimiter(rate.Limit(TokenRate), BucketSize)
 	newFilter.Allow()
 	newFilterRaw, err := json.Marshal(newFilter)
 	if err != nil {
@@ -193,7 +227,7 @@ func handleFilter(c *core) nats.Handler {
 				Allow:  false,
 				Reason: string(err.Error()), // TODO: return schema specific error
 			}
-			shared.Logger.Error(err.Error()) 
+			shared.Logger.Error(err.Error())
 			return
 		}
 		if c.filterLimiterAllow(msg) {

@@ -49,7 +49,7 @@ func SetupNozl(backendPort string) {
 	{
 		backendAPIGroup.Use(echojwt.WithConfig(auth.GetConfig()))
 
-		backendAPIGroup.GET("/limiter", core.GetMainLimiterRate)
+		backendAPIGroup.GET("/limiter", core.GetMainLimiterConf)
 		backendAPIGroup.POST("/limiter", core.SetMainLimiterRate)
 
 		backendAPIGroup.GET("/filter", core.GetFilterConf)
