@@ -32,6 +32,8 @@ const (
 )
 
 var (
-	envs      = getEnvs()
-	JWTSecret = envs["jwt_secret"]
+	envs              = getEnvs()
+	JWTSecret         = envs["jwt_secret"]
+	TokenRateDefault  = "1"
+	BucketSizeDefault = "1"
 )

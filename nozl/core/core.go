@@ -69,22 +69,22 @@ func (c *core) InitConf() {
 
 	_, err = kv.Get(shared.UserTokenRate)
 	if err != nil {
-		kv.Put(shared.UserTokenRate, []byte("1"))
+		kv.Put(shared.UserTokenRate, []byte(shared.TokenRateDefault))
 	}
 
 	_, err = kv.Get(shared.UserBucketSize)
 	if err != nil {
-		kv.Put(shared.UserBucketSize, []byte("1"))
+		kv.Put(shared.UserBucketSize, []byte(shared.BucketSizeDefault))
 	}
 
 	_, err = kv.Get(shared.MainLimiterRate)
 	if err != nil {
-		kv.Put(shared.MainLimiterRate, []byte("1"))
+		kv.Put(shared.MainLimiterRate, []byte(shared.TokenRateDefault))
 	}
 
 	_, err = kv.Get(shared.MainLimiterBucketSize)
 	if err != nil {
-		kv.Put(shared.MainLimiterBucketSize, []byte("1"))
+		kv.Put(shared.MainLimiterBucketSize, []byte(shared.BucketSizeDefault))
 	}
 }
 
