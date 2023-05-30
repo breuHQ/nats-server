@@ -67,10 +67,25 @@ func (c *core) InitConf() {
 		shared.Logger.Error(err.Error())
 	}
 
-	kv.Put(shared.UserTokenRateTemp, []byte("1"))
-	kv.Put(shared.UserBucketSizeTemp, []byte(("1")))
-	kv.Put(shared.MainLimiterRateTemp, []byte(("1")))
-	kv.Put(shared.MainLimiterBucketSizeTemp, []byte(("1")))
+	_, err = kv.Get(shared.UserTokenRateTemp)
+	if err != nil {
+		kv.Put(shared.UserTokenRateTemp, []byte("1"))
+	}
+
+	_, err = kv.Get(shared.UserBucketSizeTemp)
+	if err != nil {
+		kv.Put(shared.UserBucketSizeTemp, []byte("1"))
+	}
+
+	_, err = kv.Get(shared.MainLimiterRateTemp)
+	if err != nil {
+		kv.Put(shared.MainLimiterRateTemp, []byte("1"))
+	}
+
+	_, err = kv.Get(shared.MainLimiterBucketSizeTemp)
+	if err != nil {
+		kv.Put(shared.MainLimiterBucketSizeTemp, []byte("1"))
+	}
 }
 
 func (c *core) initKVStore(bucketName string, bucketDescription string, replicationFactor int) {
