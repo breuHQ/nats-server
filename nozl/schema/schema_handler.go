@@ -11,14 +11,79 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
+func serviceIDExists(serviceID string) bool {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false
+	}
+
+	if _, err := kv.Get(serviceID); err != nil {
+		shared.Logger.Error("Failed to retreive value from KV store!")
+		return false
+	}
+
+	return true
+}
+
+func fileExists(fileName string, serviceID string) (bool, error) {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false, err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return false, err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive value from KV store!")
+			return false, err
+		}
+
+		var schemaFile SchemaFile
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return false, err
+		}
+
+		if schemaFile.FileName == fileName && schemaFile.ServiceID == serviceID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	serviceID := ctx.FormValue("service_id")
-	fileName := ctx.FormValue("file_name")
 	file, err := ctx.FormFile("file")
-	if err != nil {
+
+	fileName := file.Filename
+
+	if err != nil || serviceID == "" || fileName == "" {
 		return ctx.JSON(http.StatusBadRequest, echo.Map{
 			"message": "File Upload Error",
 		})
+	}
+
+	if !serviceIDExists(serviceID) {
+		return ctx.JSON(http.StatusBadRequest, echo.Map{
+			"message": "Service ID does not exist",
+		})
+	}
+	updateOperations := false
+
+	if exists, err := fileExists(fileName, serviceID); err != nil && !exists {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in checking file existence",
+		})
+	} else if exists {
+		updateOperations = true
 	}
 
 	openApiFile, err := file.Open()
@@ -38,7 +103,7 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	if err = ParseOpenApiV3Schema(serviceID, buf.Bytes(), fileName); err != nil {
+	if err = ParseOpenApiV3Schema(serviceID, buf.Bytes(), fileName, updateOperations); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Error in parsing file",
 		})
@@ -49,13 +114,13 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 	})
 }
 
-func DeleteSchemaFile(fileID string) error{
+func DeleteSchemaFile(fileID string) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV store!")
 		return err
 	}
-	
+
 	_, err = kv.Get(fileID)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
@@ -102,7 +167,7 @@ func DeleteStoredOperations(serviceID string, fileID string) error {
 		if schemaVal.File.FileID == fileID && schemaVal.File.ServiceID == serviceID {
 			kv.Delete(key)
 		}
-		
+
 	}
 	return nil
 }
@@ -137,4 +202,41 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Open API file deleted successfully",
 	})
+}
+
+func GetAllOpenApiSpecHandler(ctx echo.Context) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Error in retreiving schema files",
+		})
+	}
+
+	openapiFileList := []SchemaFile{}
+	allKeys, err := kv.Keys()
+
+	// If there are no keys, return empty list
+	// This might not be the best way to handle this
+	if err != nil {
+		return ctx.JSON(http.StatusOK, openapiFileList)
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Error in retreiving schema files",
+			})
+		}
+
+		schemaFile := new(SchemaFile)
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Error in retreiving schema files",
+			})
+		}
+
+		openapiFileList = append(openapiFileList, *schemaFile)
+	}
+	return ctx.JSON(http.StatusOK, openapiFileList)
 }
