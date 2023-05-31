@@ -16,10 +16,15 @@ package main
 //go:generate go run server/errors_gen.go
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/avast/retry-go/v4"
+	"github.com/nats-io/nats-server/v2/nozl"
+	"github.com/nats-io/nats-server/v2/nozl/core"
 	"github.com/nats-io/nats-server/v2/server"
 	"go.uber.org/automaxprocs/maxprocs"
 )
@@ -131,6 +136,39 @@ func main() {
 		server.PrintAndDie(err.Error())
 	}
 
+	// Start Nozl
+	if opts.BackendHTTPPort != "" {
+		rf := opts.ReplicationFactor
+		s.Noticef("replication factor %d", rf)
+
+		nozl.PreSetupNozl(opts.Port)
+		core.Core.InitSubscriptions()
+
+		retryCb := func() error {
+			peers := s.ActivePeers()
+			isLeader := s.JetStreamIsLeader()
+			isClustered := s.JetStreamIsClustered()
+
+			log := fmt.Sprintf("peers: %d leader: %t cluster mode: %t", len(peers), isLeader, isClustered)
+			s.Noticef(log)
+
+			if (len(peers) > 2 && isLeader) || !isClustered {
+				core.Core.InitStores(rf)
+				core.Core.InitConf()
+				return nil
+			}
+
+			return errors.New(log)
+		}
+
+		err := retry.Do(retryCb, retry.Attempts(5), retry.Delay(2*time.Second))
+
+		if err != nil {
+			s.Noticef(err.Error())
+		}
+
+		nozl.SetupNozl(opts.BackendHTTPPort)
+	}
 	// Adjust MAXPROCS if running under linux/cgroups quotas.
 	undo, err := maxprocs.Set(maxprocs.Logger(s.Debugf))
 	if err != nil {
