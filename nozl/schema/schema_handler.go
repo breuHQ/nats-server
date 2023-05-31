@@ -175,7 +175,7 @@ func DeleteStoredOperations(serviceID string, fileID string) error {
 func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 	// serviceID := ctx.QueryParam("service_id")
 
-	fileID := ctx.Param("id")
+	fileID := ctx.Param("file_id")
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV store!")
