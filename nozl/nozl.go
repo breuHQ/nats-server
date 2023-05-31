@@ -73,7 +73,8 @@ func SetupNozl(backendPort string) {
 		backendAPIGroup.DELETE("/message/log", eventstream.DeleteMsgLogHandler)
 
 		backendAPIGroup.POST("/schema/upload", schema.UploadOpenApiSpecHandler)
-		backendAPIGroup.DELETE("/schema", schema.DeleteOpenApiSpecHandler)
+		backendAPIGroup.DELETE("/schema/:id", schema.DeleteOpenApiSpecHandler)
+		backendAPIGroup.DELETE("/schema", schema.DeleteAllOpenApiSpecHandler)
 		backendAPIGroup.GET("/schema", schema.GetAllOpenApiSpecHandler)
 
 		backendAPIGroup.GET("", auth.RestrictedHandler)
