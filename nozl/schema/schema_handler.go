@@ -34,9 +34,9 @@ func fileExists(fileName string, serviceID string) (bool, error) {
 	}
 
 	allKeys, err := kv.Keys()
+	// If there are no keys, then the file does not exist
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return false, err
+		return false, nil
 	}
 
 	for _, key := range allKeys {
@@ -173,8 +173,29 @@ func DeleteStoredOperations(serviceID string, fileID string) error {
 }
 
 func DeleteOpenApiSpecHandler(ctx echo.Context) error {
-	serviceID := ctx.QueryParam("service_id")
-	fileID := ctx.QueryParam("file_id")
+	// serviceID := ctx.QueryParam("service_id")
+
+	fileID := ctx.Param("file_id")
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	value, err := kv.Get(fileID)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+		return err
+	}
+
+	var schemaFile SchemaFile
+	if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+		shared.Logger.Error("Failed to unmarshal value from KV store!")
+		return err
+	}
+
+	serviceID := schemaFile.ServiceID
+
 	if serviceID == "" {
 		return ctx.JSON(http.StatusBadRequest, echo.Map{
 			"message": "service_id is required",
@@ -202,6 +223,45 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, echo.Map{
 		"message": "Open API file deleted successfully",
 	})
+}
+
+func DeleteAllOpenApiSpecHandler(ctx echo.Context) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		kv.Delete(key)
+	}
+
+	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	allKeys, err = kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		kv.Delete(key)
+	}
+
+	return ctx.JSON(http.StatusOK, echo.Map{
+		"message": "All Open API files deleted successfully",
+	})
+
 }
 
 func GetAllOpenApiSpecHandler(ctx echo.Context) error {
