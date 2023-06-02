@@ -200,6 +200,21 @@ func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 	return
 }
 
+func (c *core) handleLimiter(msg *eventstream.Message) {
+	if err := c.mainLimiterWait(msg); err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	if err := c.sendToService(msg); err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	shared.Logger.Info(msg.ID,
+		zap.String("Subject", "MainLimiter"),
+		zap.String("Status", "Allowed"),
+	)
+}
+
 func handleLimiter(c *core) nats.Handler {
 	return func(msg *eventstream.Message) {
 
@@ -215,6 +230,51 @@ func handleLimiter(c *core) nats.Handler {
 			zap.String("Subject", "MainLimiter"),
 			zap.String("Status", "Allowed"),
 		)
+	}
+}
+
+func (c *core) handleFilter(msg *eventstream.Message) {
+	err := schema.ValidateOpenAPIV3Schema(msg)
+	if err != nil {
+		// TODO: Decide later if this message should be sent to dead letter queue
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: string(err.Error()), // TODO: return schema specific error
+		}
+		shared.Logger.Error(err.Error())
+		return
+	}
+	if c.filterLimiterAllow(msg) {
+		shared.Logger.Info(msg.ID,
+			zap.String("Subject", "Filter"),
+			zap.String("Status", "Allowed"),
+		)
+		c.handleLimiter(msg)
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  true,
+			Reason: "ok",
+		}
+	} else {
+		queuePayload, _ := json.Marshal(msg)
+
+		kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV)
+		if err != nil {
+			shared.Logger.Error(err.Error())
+		}
+
+		if _, err := kv.Put(msg.ID, queuePayload); err != nil {
+			shared.Logger.Error(err.Error())
+		}
+
+		shared.Logger.Info(msg.ID,
+			zap.String("Subject", "Filter"),
+			zap.String("Status", "Rejected"),
+		)
+
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: "Rate Limit Exceeded",
+		}
 	}
 }
 
