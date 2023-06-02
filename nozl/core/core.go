@@ -213,6 +213,7 @@ func (c *core) handleLimiter(msg *eventstream.Message) {
 		zap.String("Subject", "MainLimiter"),
 		zap.String("Status", "Allowed"),
 	)
+	return
 }
 
 func handleLimiter(c *core) nats.Handler {
@@ -249,11 +250,12 @@ func (c *core) handleFilter(msg *eventstream.Message) {
 			zap.String("Subject", "Filter"),
 			zap.String("Status", "Allowed"),
 		)
-		c.handleLimiter(msg)
+		go c.handleLimiter(msg)
 		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
 			Allow:  true,
 			Reason: "ok",
 		}
+		return
 	} else {
 		queuePayload, _ := json.Marshal(msg)
 
@@ -276,6 +278,7 @@ func (c *core) handleFilter(msg *eventstream.Message) {
 			Reason: "Rate Limit Exceeded",
 		}
 	}
+	return
 }
 
 func handleFilter(c *core) nats.Handler {

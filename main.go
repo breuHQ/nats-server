@@ -142,7 +142,7 @@ func main() {
 		s.Noticef("replication factor %d", rf)
 
 		nozl.PreSetupNozl(opts.Port)
-		core.Core.InitSubscriptions()
+		//core.Core.InitSubscriptions()
 
 		retryCb := func() error {
 			peers := s.ActivePeers()

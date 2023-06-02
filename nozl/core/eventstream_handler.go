@@ -30,7 +30,8 @@ func SendMessageHandler(ctx echo.Context) error {
 		})
 	}
 
-	eventstream.Eventstream.PublishEncodedMessage("Filter", msg)
+	//eventstream.Eventstream.PublishEncodedMessage("Filter", msg)
+	go Core.handleFilter(msg)
 
 	msgFilterAllow := <-eventstream.MessageFilterAllow
 
@@ -80,7 +81,8 @@ func ForceSendMsgHandler(ctx echo.Context) error {
 		})
 	}
 
-	eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
+	//eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
+	Core.handleFilter(msg)
 
 	if err = kv.Delete(msgID); err != nil {
 		shared.Logger.Info("Unable to delete sent message")
