@@ -42,7 +42,7 @@ func SetupNozl(backendPort string) {
 	{
 		tenantGroup.Use(middleware.KeyAuth(auth.GetKeyAuthConfig))
 
-		tenantGroup.POST("/message", eventstream.SendMessageHandler)
+		tenantGroup.POST("/message", core.SendMessageHandler)
 	}
 
 	backendAPIGroup := e.Group(prefix + "/dashboard")
@@ -66,11 +66,11 @@ func SetupNozl(backendPort string) {
 		backendAPIGroup.POST("/tenant/:id", tenant.RefreshAPIKeyHandler)
 		backendAPIGroup.DELETE("/tenant/:id", tenant.DeleteTenantHandler)
 
-		backendAPIGroup.GET("/message", eventstream.GetAllMsgWaitListHandler)
-		backendAPIGroup.GET("/message/log", eventstream.GetMsgLogHandler)
-		backendAPIGroup.GET("/message/:message_id", eventstream.ForceSendMsgHandler)
-		backendAPIGroup.DELETE("/message/:message_id", eventstream.DeleteMsgHandler)
-		backendAPIGroup.DELETE("/message/log", eventstream.DeleteMsgLogHandler)
+		backendAPIGroup.GET("/message", core.GetAllMsgWaitListHandler)
+		backendAPIGroup.GET("/message/log", core.GetMsgLogHandler)
+		backendAPIGroup.GET("/message/:message_id", core.ForceSendMsgHandler)
+		backendAPIGroup.DELETE("/message/:message_id", core.DeleteMsgHandler)
+		backendAPIGroup.DELETE("/message/log", core.DeleteMsgLogHandler)
 
 		backendAPIGroup.POST("/schema/upload", schema.UploadOpenApiSpecHandler)
 		backendAPIGroup.DELETE("/schema/:file_id", schema.DeleteOpenApiSpecHandler)

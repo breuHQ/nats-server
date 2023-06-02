@@ -1,4 +1,4 @@
-package eventstream
+package core
 
 import (
 	"encoding/json"
@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
 )
 
 func SendMessageHandler(ctx echo.Context) error {
-	var reqBody ReqBody
-	var pathParams PathParams
-	var queryParams QueryParams
-	msg := NewMessage("", "", reqBody, pathParams, queryParams)
+	var reqBody eventstream.ReqBody
+	var pathParams eventstream.PathParams
+	var queryParams eventstream.QueryParams
+	msg := eventstream.NewMessage("", "", reqBody, pathParams, queryParams)
 
 	if err := ctx.Bind(&msg); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
@@ -29,12 +30,12 @@ func SendMessageHandler(ctx echo.Context) error {
 		})
 	}
 
-	Eventstream.PublishEncodedMessage("Filter", msg)
+	eventstream.Eventstream.PublishEncodedMessage("Filter", msg)
 
-	msgFilterAllow := <-MessageFilterAllow
+	msgFilterAllow := <-eventstream.MessageFilterAllow
 
 	if msgFilterAllow.Allow == true {
-		serviceResponse := <-ServiceResponse
+		serviceResponse := <-eventstream.ServiceResponse
 
 		var js map[string]interface{}
 
@@ -56,7 +57,7 @@ func SendMessageHandler(ctx echo.Context) error {
 func ForceSendMsgHandler(ctx echo.Context) error {
 	msgID := ctx.Param("message_id")
 
-	kv, err := Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Unable to retreive Wait Queue Key Value store",
@@ -70,7 +71,7 @@ func ForceSendMsgHandler(ctx echo.Context) error {
 		})
 	}
 
-	msg := &Message{}
+	msg := &eventstream.Message{}
 
 	err = json.Unmarshal(msgEntry.Value(), &msg)
 	if err != nil {
@@ -79,7 +80,7 @@ func ForceSendMsgHandler(ctx echo.Context) error {
 		})
 	}
 
-	Eventstream.PublishEncodedMessage("MainLimiter", msg)
+	eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
 
 	if err = kv.Delete(msgID); err != nil {
 		shared.Logger.Info("Unable to delete sent message")
@@ -113,7 +114,7 @@ func GetMsgLogHandler(ctx echo.Context) error {
 }
 
 func retrieveAllValKVStore(store string, ctx echo.Context) error {
-	kv, err := Eventstream.RetreiveKeyValStore(store)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(store)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"message": "Unable to retreive Key Value store",
@@ -127,7 +128,7 @@ func retrieveAllValKVStore(store string, ctx echo.Context) error {
 		})
 	}
 
-	vals := []*Message{}
+	vals := []*eventstream.Message{}
 
 	for _, key := range allKeys {
 		value, err := kv.Get(key)
@@ -137,7 +138,7 @@ func retrieveAllValKVStore(store string, ctx echo.Context) error {
 			})
 		}
 
-		msg := new(Message)
+		msg := new(eventstream.Message)
 		if err := json.Unmarshal(value.Value(), &msg); err != nil {
 			shared.Logger.Error(err.Error())
 		}
@@ -151,7 +152,7 @@ func retrieveAllValKVStore(store string, ctx echo.Context) error {
 func DeleteMsgHandler(ctx echo.Context) error {
 	msgID := ctx.Param("message_id")
 
-	if kv, err := Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV); err == nil {
+	if kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV); err == nil {
 		if _, err := kv.Get(msgID); err != nil {
 			return ctx.JSON(http.StatusNotFound, echo.Map{
 				"message": "Message does not exist",
@@ -175,7 +176,7 @@ func DeleteMsgHandler(ctx echo.Context) error {
 }
 
 func DeleteMsgLogHandler(ctx echo.Context) error {
-	kv, err := Eventstream.RetreiveKeyValStore(shared.MsgLogKV)
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgLogKV)
 	if err != nil {
 		return ctx.JSON(http.StatusConflict, echo.Map{
 			"message": "Error in retreiving message log",
@@ -203,8 +204,8 @@ func DeleteMsgLogHandler(ctx echo.Context) error {
 	})
 }
 
-func IdentifyTenant(msg *Message, apiKey string) error {
-	kv, err := Eventstream.RetreiveKeyValStore(shared.TenantAPIKV)
+func IdentifyTenant(msg *eventstream.Message, apiKey string) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.TenantAPIKV)
 	if err != nil {
 		return err
 	}
