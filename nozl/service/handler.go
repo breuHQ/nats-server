@@ -10,7 +10,7 @@ import (
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
 	"github.com/nats-io/nats-server/v2/nozl/rate"
 	"github.com/nats-io/nats-server/v2/nozl/shared"
-)
+	"github.com/nats-io/nats-server/v2/nozl/schema")
 
 func CreateServiceHandler(ctx echo.Context) error {
 	newService := NewService("", "", "")
@@ -175,6 +175,12 @@ func DeleteServiceHandler(ctx echo.Context) error {
 		if err := kv.Delete(id); err != nil {
 			return ctx.JSON(http.StatusConflict, echo.Map{
 				"message": "Error Deleting",
+			})
+		}
+
+		if err := schema.DeleteFilesByServiceID(id); err != nil {
+			return ctx.JSON(http.StatusConflict, echo.Map{
+				"message": "Error Deleting files",
 			})
 		}
 
