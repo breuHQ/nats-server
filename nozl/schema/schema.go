@@ -41,8 +41,8 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, up
 		return err
 	}
 
-	var schemaFile SchemaFile;
-	
+	var schemaFile SchemaFile
+
 	if !updateOperations {
 		schemaFileNew, err := AddSchemaFile(serviceID, fileName)
 		if err != nil {
@@ -56,7 +56,29 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, up
 			shared.Logger.Error("Failed to Get schemaDetails from KV store!")
 			return err
 		}
+		schemaFileNew.DateUpdated = shared.GetDate()
 		schemaFile = schemaFileNew
+		
+		kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+			return err
+		}
+
+		schemaFileJson, err := json.Marshal(schemaFile)
+		if err != nil {
+			shared.Logger.Error("Failed to marshal schemaDetails!")
+			return err
+		}
+
+		val, err := kv.Get(schemaFile.FileID)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive schemaDetails KV store!")
+			return err
+		}
+
+		revision := val.Revision()
+		kv.Update(schemaFile.FileID, schemaFileJson, revision)
 	}
 
 	for pathKey, pathValue := range doc.Paths {

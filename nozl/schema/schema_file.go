@@ -9,16 +9,20 @@ import (
 )
 
 type SchemaFile struct {
-	ServiceID string
-	FileName  string
-	FileID    string
+	ServiceID   string
+	FileName    string
+	FileID      string
+	DateCreated string
+	DateUpdated string
 }
 
 func NewSchemaFile(serviceID string, fileName string) SchemaFile {
 	return SchemaFile{
-		ServiceID: serviceID,
-		FileName:  fileName,
-		FileID:    uuid.New().String(),
+		ServiceID:   serviceID,
+		FileName:    fileName,
+		FileID:      uuid.New().String(),
+		DateCreated: shared.GetDate(),
+		DateUpdated: shared.GetDate(),
 	}
 }
 
