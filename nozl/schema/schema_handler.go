@@ -109,9 +109,15 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "Open API file parsed successfully",
-	})
+	if updateOperations {
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "Open API file updated successfully",
+		})
+	}else {
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "Open API file uploaded successfully",
+		})
+	}
 }
 
 func DeleteSchemaFile(fileID string) error {
