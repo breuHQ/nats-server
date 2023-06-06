@@ -13,8 +13,8 @@ type SchemaFile struct {
 	ServiceID   string
 	FileName    string
 	FileID      string
-	DateCreated string
-	DateUpdated string
+	CreatedAt string
+	UpdatedAt string
 }
 
 func GetDate() string {
@@ -26,8 +26,8 @@ func NewSchemaFile(serviceID string, fileName string) SchemaFile {
 		ServiceID:   serviceID,
 		FileName:    fileName,
 		FileID:      uuid.New().String(),
-		DateCreated: GetDate(),
-		DateUpdated: GetDate(),
+		CreatedAt: GetDate(),
+		UpdatedAt: GetDate(),
 	}
 }
 
