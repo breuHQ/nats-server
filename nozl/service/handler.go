@@ -178,7 +178,7 @@ func DeleteServiceHandler(ctx echo.Context) error {
 			})
 		}
 
-		if err := schema.DeleteFilesByServiceID(id); err != nil {
+		if err := schema.DeleteSchemaFilesByServiceID(id); err != nil {
 			return ctx.JSON(http.StatusConflict, echo.Map{
 				"message": "Error Deleting files",
 			})

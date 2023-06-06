@@ -308,7 +308,44 @@ func GetAllOpenApiSpecHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, openapiFileList)
 }
 
-func DeleteFilesByServiceID(serviceID string) error {
+func deleteSavedOperations(serviceID string) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+			return err
+		}
+
+		var Schema Schema
+		if err := json.Unmarshal(value.Value(), &Schema); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return err
+		}
+
+		// check for the 5th dash in the key. since each uuid has 4 dashes the 5th one is seperator for serviceID
+		// Store the substring before 5th dash to new variable and compare it with serviceID
+		// if it matches, delete the key
+		temp := strings.Split(key, "-")[:5]
+		if strings.Join(temp, "-") == serviceID {
+			kv.Delete(key)
+		}
+	}
+	return nil
+}
+
+func deleteSavedSchemaFiles(serviceID string) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV store!")
@@ -339,41 +376,25 @@ func DeleteFilesByServiceID(serviceID string) error {
 		}
 	}
 
-	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
-	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return err
-	}
-
-	allKeys, err = kv.Keys()
-	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return err
-	}
-
-	for _, key := range allKeys {
-		value, err := kv.Get(key)
-		if err != nil {
-			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
-			return err
-		}
-
-		var Schema Schema
-		if err := json.Unmarshal(value.Value(), &Schema); err != nil {
-			shared.Logger.Error("Failed to unmarshal value from KV store!")
-			return err
-		}
-
-		// check for the 5th dash in the key. since each uuid has 4 dashes the 5th one is seperator for serviceID
-		// Store the substring before 5th dash to new variable and compare it with serviceID
-		// if it matches, delete the key
-		temp := strings.Split(key, "-")[:5]
-		if strings.Join(temp, "-") == serviceID {
-			kv.Delete(key)
-		}
-	}
 	return nil
-	
+
+}
+
+func DeleteSchemaFilesByServiceID(serviceID string) error {
+	err := deleteSavedSchemaFiles(serviceID)
+	if err != nil {
+		shared.Logger.Error("Failed to delete saved schema files!")
+		return err
+	}
+
+	err = deleteSavedOperations(serviceID)
+	if err != nil {
+		shared.Logger.Error("Failed to delete saved operations!")
+		return err
+	}
+
+	return nil
+
 	// TODO: There might be a case when schemaFiles are deleted but the operations are not deleted due to any error.
 	// In that case, the operations will be orphaned. We need to handle that case.
 	// Or we should revert the deletion of files if there is any error in deleting operations
