@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
@@ -109,9 +110,15 @@ func UploadOpenApiSpecHandler(ctx echo.Context) error {
 		})
 	}
 
-	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "Open API file parsed successfully",
-	})
+	if updateOperations {
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "Open API file updated successfully",
+		})
+	} else {
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "Open API file uploaded successfully",
+		})
+	}
 }
 
 func DeleteSchemaFile(fileID string) error {
@@ -299,4 +306,91 @@ func GetAllOpenApiSpecHandler(ctx echo.Context) error {
 		openapiFileList = append(openapiFileList, *schemaFile)
 	}
 	return ctx.JSON(http.StatusOK, openapiFileList)
+}
+
+func deleteSavedOperations(serviceID string) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+			return err
+		}
+
+		var Schema Schema
+		if err := json.Unmarshal(value.Value(), &Schema); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return err
+		}
+
+		// split serviceID from operationsID and compare it with serviceID
+		savedService := strings.Split(key, "_")[0]
+		if savedService == serviceID {
+			kv.Delete(key)
+		}
+	}
+	return nil
+}
+
+func deleteSavedSchemaFiles(serviceID string) error {
+	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	allKeys, err := kv.Keys()
+	if err != nil {
+		shared.Logger.Error("Failed to retreive KV store!")
+		return err
+	}
+
+	for _, key := range allKeys {
+		value, err := kv.Get(key)
+		if err != nil {
+			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+			return err
+		}
+
+		var schemaFile SchemaFile
+		if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
+			shared.Logger.Error("Failed to unmarshal value from KV store!")
+			return err
+		}
+
+		if schemaFile.ServiceID == serviceID {
+			kv.Delete(key)
+		}
+	}
+
+	return nil
+
+}
+
+func DeleteSchemaFilesByServiceID(serviceID string) error {
+	err := deleteSavedSchemaFiles(serviceID)
+	if err != nil {
+		shared.Logger.Error("Failed to delete saved schema files!")
+		return err
+	}
+
+	err = deleteSavedOperations(serviceID)
+	if err != nil {
+		shared.Logger.Error("Failed to delete saved operations!")
+		return err
+	}
+
+	return nil
+
 }

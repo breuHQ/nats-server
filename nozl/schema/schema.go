@@ -147,16 +147,16 @@ func AddSchemaToKVStore(serviceID string, pathKey string, httpMethod string, ope
 	jsonPayload, _ := json.Marshal(currSchema)
 
 	if updateOperations {
-		kv, err := schemaKv.Get(fmt.Sprintf("%s-%s", serviceID, operationID))
+		kv, err := schemaKv.Get(fmt.Sprintf("%s_%s", serviceID, operationID))
 		if err != nil {
 			shared.Logger.Error(err.Error())
 			return
 		}
 
 		revision := kv.Revision()
-		schemaKv.Update(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload, revision)
+		schemaKv.Update(fmt.Sprintf("%s_%s", serviceID, operationID), jsonPayload, revision)
 	} else {
-		schemaKv.Put(fmt.Sprintf("%s-%s", serviceID, operationID), jsonPayload)
+		schemaKv.Put(fmt.Sprintf("%s_%s", serviceID, operationID), jsonPayload)
 	}
 }
 
