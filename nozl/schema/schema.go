@@ -56,9 +56,9 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, up
 			shared.Logger.Error("Failed to Get schemaDetails from KV store!")
 			return err
 		}
-		schemaFileNew.DateUpdated = shared.GetDate()
+		schemaFileNew.DateUpdated = GetDate()
 		schemaFile = schemaFileNew
-		
+
 		kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 		if err != nil {
 			shared.Logger.Error("Failed to retreive schemaDetails KV store!")

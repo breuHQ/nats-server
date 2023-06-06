@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats-server/v2/nozl/eventstream"
@@ -16,13 +17,17 @@ type SchemaFile struct {
 	DateUpdated string
 }
 
+func GetDate() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}
+
 func NewSchemaFile(serviceID string, fileName string) SchemaFile {
 	return SchemaFile{
 		ServiceID:   serviceID,
 		FileName:    fileName,
 		FileID:      uuid.New().String(),
-		DateCreated: shared.GetDate(),
-		DateUpdated: shared.GetDate(),
+		DateCreated: GetDate(),
+		DateUpdated: GetDate(),
 	}
 }
 
