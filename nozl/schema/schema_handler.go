@@ -334,11 +334,9 @@ func deleteSavedOperations(serviceID string) error {
 			return err
 		}
 
-		// check for the 5th dash in the key. since each uuid has 4 dashes the 5th one is seperator for serviceID
-		// Store the substring before 5th dash to new variable and compare it with serviceID
-		// if it matches, delete the key
-		temp := strings.Split(key, "-")[:5]
-		if strings.Join(temp, "-") == serviceID {
+		// split serviceID from operationsID and compare it with serviceID
+		savedService := strings.Split(key, "_")[0]
+		if savedService == serviceID {
 			kv.Delete(key)
 		}
 	}
@@ -395,7 +393,4 @@ func DeleteSchemaFilesByServiceID(serviceID string) error {
 
 	return nil
 
-	// TODO: There might be a case when schemaFiles are deleted but the operations are not deleted due to any error.
-	// In that case, the operations will be orphaned. We need to handle that case.
-	// Or we should revert the deletion of files if there is any error in deleting operations
 }
