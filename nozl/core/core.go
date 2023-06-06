@@ -43,11 +43,6 @@ func (s Subject) String() string {
 	return string(s)
 }
 
-func (c *core) InitSubscriptions() {
-	c.initFilter()
-	c.initMainLimiter()
-}
-
 func (c *core) InitStores(replicationFactor int) {
 	c.initKVStore(shared.ServiceKV, "", replicationFactor)
 	c.initKVStore(shared.TenantKV, "", replicationFactor)
@@ -97,20 +92,6 @@ func (c *core) initKVStore(bucketName string, bucketDescription string, replicat
 	}
 
 	c.KVStore = kv
-}
-
-func (c *core) initFilter() {
-	_, err := eventstream.Eventstream.EnCon.Subscribe(Filter.String(), handleFilter(c))
-	if err != nil {
-		shared.Logger.Error("Error subscribing to Filter subject", zap.Error(err))
-	}
-}
-
-func (c *core) initMainLimiter() {
-	_, err := eventstream.Eventstream.EnCon.Subscribe(MainLimiter.String(), handleLimiter(c))
-	if err != nil {
-		shared.Logger.Error("Error subscribing to MainLimiter subject", zap.Error(err))
-	}
 }
 
 // Sends message on the Filter subject.
@@ -200,69 +181,67 @@ func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 	return
 }
 
-func handleLimiter(c *core) nats.Handler {
-	return func(msg *eventstream.Message) {
+func (c *core) handleLimiter(msg *eventstream.Message) {
+	if err := c.mainLimiterWait(msg); err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
-		if err := c.mainLimiterWait(msg); err != nil {
+	if err := c.sendToService(msg); err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	shared.Logger.Info(msg.ID,
+		zap.String("Subject", "MainLimiter"),
+		zap.String("Status", "Allowed"),
+	)
+	return
+}
+
+func (c *core) handleFilter(msg *eventstream.Message) {
+	err := schema.ValidateOpenAPIV3Schema(msg)
+	if err != nil {
+		// TODO: Decide later if this message should be sent to dead letter queue
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: string(err.Error()), // TODO: return schema specific error
+		}
+		shared.Logger.Error(err.Error())
+		return
+	}
+	if c.filterLimiterAllow(msg) {
+		shared.Logger.Info(msg.ID,
+			zap.String("Subject", "Filter"),
+			zap.String("Status", "Allowed"),
+		)
+		go c.handleLimiter(msg)
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  true,
+			Reason: "ok",
+		}
+		return
+	} else {
+		queuePayload, _ := json.Marshal(msg)
+
+		kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV)
+		if err != nil {
 			shared.Logger.Error(err.Error())
 		}
 
-		if err := c.sendToService(msg); err != nil {
+		if _, err := kv.Put(msg.ID, queuePayload); err != nil {
 			shared.Logger.Error(err.Error())
 		}
 
 		shared.Logger.Info(msg.ID,
-			zap.String("Subject", "MainLimiter"),
-			zap.String("Status", "Allowed"),
+			zap.String("Subject", "Filter"),
+			zap.String("Status", "Rejected"),
 		)
-	}
-}
 
-func handleFilter(c *core) nats.Handler {
-	return func(msg *eventstream.Message) {
-		err := schema.ValidateOpenAPIV3Schema(msg)
-		if err != nil {
-			// TODO: Decide later if this message should be sent to dead letter queue
-			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				Allow:  false,
-				Reason: string(err.Error()), // TODO: return schema specific error
-			}
-			shared.Logger.Error(err.Error())
-			return
-		}
-		if c.filterLimiterAllow(msg) {
-			shared.Logger.Info(msg.ID,
-				zap.String("Subject", "Filter"),
-				zap.String("Status", "Allowed"),
-			)
-			eventstream.Eventstream.PublishEncodedMessage("MainLimiter", msg)
-			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				Allow:  true,
-				Reason: "ok",
-			}
-		} else {
-			queuePayload, _ := json.Marshal(msg)
-
-			kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgWaitListKV)
-			if err != nil {
-				shared.Logger.Error(err.Error())
-			}
-
-			if _, err := kv.Put(msg.ID, queuePayload); err != nil {
-				shared.Logger.Error(err.Error())
-			}
-
-			shared.Logger.Info(msg.ID,
-				zap.String("Subject", "Filter"),
-				zap.String("Status", "Rejected"),
-			)
-
-			eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-				Allow:  false,
-				Reason: "Rate Limit Exceeded",
-			}
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: "Rate Limit Exceeded",
 		}
 	}
+	return
 }
 
 func (c *core) sendToService(msg *eventstream.Message) error {
