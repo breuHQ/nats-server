@@ -284,7 +284,7 @@ func (c *core) LogSentMessage(msg *eventstream.Message) error {
 }
 
 func (c *core) getServiceFromMsg(msg *eventstream.Message) (*service.Service, error) {
-	currService := service.NewService("", "", "")
+	currService := service.NewService("", "", "", "")
 
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
