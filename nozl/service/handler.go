@@ -194,7 +194,7 @@ func DeleteServiceHandler(ctx echo.Context) error {
 	})
 }
 
-func DeleteAllServicesHandler(ctx echo.Context) error {
+func DeleteServiceAllHandler(ctx echo.Context) error {
 	if kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV); err == nil {
 		if allKeys, err := kv.Keys(); err == nil {
 			for _, key := range allKeys {
