@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -100,17 +101,16 @@ func (c *core) Send(msg *eventstream.Message) {
 }
 
 // TODO: Get limiter values from API.
-func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
-	userID := msg.ReqBody["user_id"].(string)
+func (c *core) filterLimiterAllow(msg *eventstream.Message, filterOnID string) bool {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.FilterLimiterKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
 		return false
 	}
 
-	flRaw, err := kv.Get(userID)
+	flRaw, err := kv.Get(filterOnID)
 	if err != nil {
-		c.RegisterFilter(kv, userID)
+		c.RegisterFilter(kv, filterOnID)
 		return true
 	}
 
@@ -119,7 +119,7 @@ func (c *core) filterLimiterAllow(msg *eventstream.Message) bool {
 
 	allow := fl.Allow()
 	flUpdated, err := json.Marshal(fl)
-	_, err = kv.Put(userID, flUpdated)
+	_, err = kv.Put(filterOnID, flUpdated)
 	if err != nil {
 		shared.Logger.Error(err.Error())
 		return false
@@ -159,7 +159,7 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 	return nil
 }
 
-func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
+func (c *core) RegisterFilter(kv nats.KeyValue, filterOnID string) {
 	confKeyAll := []string{shared.UserTokenRate, shared.UserBucketSize}
 	confMap := eventstream.GetMultValKVstore(shared.ConfigKV, confKeyAll)
 	TokenRate, _ := strconv.Atoi(string(confMap[shared.UserTokenRate]))
@@ -173,7 +173,7 @@ func (c *core) RegisterFilter(kv nats.KeyValue, userID string) {
 		return
 	}
 
-	_, err = kv.Put(userID, newFilterRaw)
+	_, err = kv.Put(filterOnID, newFilterRaw)
 	if err != nil {
 		shared.Logger.Error(err.Error())
 		return
@@ -208,7 +208,25 @@ func (c *core) handleFilter(msg *eventstream.Message) {
 		shared.Logger.Error(err.Error())
 		return
 	}
-	if c.filterLimiterAllow(msg) {
+	serv, err := c.getServiceFromMsg(msg)
+	if err != nil {
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: string(err.Error()),
+		}
+		shared.Logger.Error(err.Error())
+		return
+	}
+	filterOnID, exists := msg.ReqBody[serv.FilterOn]
+	if exists == false {
+		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+			Allow:  false,
+			Reason: fmt.Sprintf("Incorrect filter_on field name. Correct filter_on field name for this service: %s", serv.FilterOn),
+		}
+		return
+	}
+	filterOnIDStr := filterOnID.(string)
+	if c.filterLimiterAllow(msg, filterOnIDStr) {
 		shared.Logger.Info(msg.ID,
 			zap.String("Subject", "Filter"),
 			zap.String("Status", "Allowed"),
@@ -284,7 +302,7 @@ func (c *core) LogSentMessage(msg *eventstream.Message) error {
 }
 
 func (c *core) getServiceFromMsg(msg *eventstream.Message) (*service.Service, error) {
-	currService := service.NewService("", "", "")
+	currService := service.NewService("", "", "", "")
 
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
