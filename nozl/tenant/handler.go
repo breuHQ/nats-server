@@ -80,14 +80,11 @@ func GetTenantAllHandler(ctx echo.Context) error {
 		})
 	}
 
+	tenantAllList := []map[string]string{}
 	allKeys, err := kv.Keys()
 	if err != nil {
-		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Unable to retreive keys from the Key Value store",
-		})
+		return ctx.JSON(http.StatusOK, tenantAllList)
 	}
-
-	tenantAllList := []map[string]string{}
 
 	for _, key := range allKeys {
 		value, err := kv.Get(key)
@@ -186,4 +183,57 @@ func RefreshAPIKeyHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, tnt)
+}
+
+func DeleteAllTenantsHandler(ctx echo.Context) error {
+	tenantKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.TenantKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to find tenant bucket",
+		})
+	}
+
+	tenantAPIKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.TenantAPIKV)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to find tenant api key bucket",
+		})
+	}
+
+	allKeys, err := tenantKv.Keys()
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Unable to retreive keys from the Key Value store",
+		})
+	}
+
+	for _, key := range allKeys {
+		value, err := tenantKv.Get(key)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Unable to retreive value corresponding to a key from the Key Value store",
+			})
+		}
+
+		var tnt Tenant
+		if err := json.Unmarshal(value.Value(), &tnt); err != nil {
+			shared.Logger.Error(err.Error())
+		}
+
+		if err := tenantAPIKv.Delete(tnt.APIKey); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Unable to delete old tenant API token in tenant bucket",
+			})
+		}
+
+		if err := tenantKv.Delete(key); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, echo.Map{
+				"message": "Unable to delete old tenant API token in tenant bucket",
+			})
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, echo.Map{
+		"message": "All tenants deleted",
+	})
 }
