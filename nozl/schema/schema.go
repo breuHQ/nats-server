@@ -238,7 +238,7 @@ func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
 		return nil, err
 	}
 
-	entry, err := schemaKv.Get(fmt.Sprintf("%s-%s", msg.ServiceID, msg.OperationID))
+	entry, err := schemaKv.Get(fmt.Sprintf("%s_%s", msg.ServiceID, msg.OperationID))
 	if err != nil {
 		shared.Logger.Error(err.Error())
 		return nil, err
