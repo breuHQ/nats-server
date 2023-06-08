@@ -185,7 +185,7 @@ func RefreshAPIKeyHandler(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, tnt)
 }
 
-func DeleteAllTenantsHandler(ctx echo.Context) error {
+func DeleteTenantAllHandler(ctx echo.Context) error {
 	tenantKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.TenantKV)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
