@@ -194,3 +194,32 @@ func DeleteServiceHandler(ctx echo.Context) error {
 		"message": "bucket not found",
 	})
 }
+
+func DeleteServiceAllHandler(ctx echo.Context) error {
+	if kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV); err == nil {
+		if allKeys, err := kv.Keys(); err == nil {
+			for _, key := range allKeys {
+				err = schema.DeleteSchemaFilesByServiceID(key)
+				if err != nil {
+					return ctx.JSON(http.StatusConflict, echo.Map{
+						"message": "Error Deleting schema files",
+					})
+				}
+
+				if err := kv.Delete(key); err != nil {
+					return ctx.JSON(http.StatusInternalServerError, echo.Map{
+						"message": "Error Deleting",
+					})
+				}
+			}
+
+			return ctx.JSON(http.StatusOK, echo.Map{
+				"message": "All Services deleted",
+			})
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, echo.Map{
+		"message": "bucket not found",
+	})
+}

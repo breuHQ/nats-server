@@ -59,6 +59,7 @@ func SetupNozl(backendPort string) {
 		backendAPIGroup.GET("/service", service.GetServiceAllHandler)
 		backendAPIGroup.GET("/service/:id", service.GetServiceHandler)
 		backendAPIGroup.DELETE("/service/:id", service.DeleteServiceHandler)
+		backendAPIGroup.DELETE("/service", service.DeleteServiceAllHandler)
 
 		backendAPIGroup.POST("/tenant", tenant.CreateTenantHandler)
 		backendAPIGroup.GET("/tenant", tenant.GetTenantAllHandler)
