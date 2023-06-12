@@ -27,6 +27,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -3235,142 +3236,7 @@ func TestJetStreamClusterConsumerFollowerStoreStateAckFloorBug(t *testing.T) {
 	checkAllLeaders()
 }
 
-func TestNoRaceJetStreamClusterDifferentRTTInterestBasedStreamPreAck(t *testing.T) {
-	tmpl := `
-	listen: 127.0.0.1:-1
-	server_name: %s
-	jetstream: {max_mem_store: 256MB, max_file_store: 2GB, store_dir: '%s'}
-
-	cluster {
-		name: "F3"
-		listen: 127.0.0.1:%d
-		routes = [%s]
-	}
-
-	accounts {
-		$SYS { users = [ { user: "admin", pass: "s3cr3t!" } ] }
-	}
-	`
-
-	//  Route Ports
-	//	"S1": 14622,
-	//	"S2": 15622,
-	//	"S3": 16622,
-
-	// S2 (stream leader) will have a slow path to S1 (via proxy) and S3 (consumer leader) will have a fast path.
-
-	// Do these in order, S1, S2 (proxy) then S3.
-	c := &cluster{t: t, servers: make([]*Server, 3), opts: make([]*Options, 3), name: "F3"}
-
-	// S1
-	conf := fmt.Sprintf(tmpl, "S1", t.TempDir(), 14622, "route://127.0.0.1:15622, route://127.0.0.1:16622")
-	c.servers[0], c.opts[0] = RunServerWithConfig(createConfFile(t, []byte(conf)))
-
-	// S2
-	// Create the proxy first. Connect this to S1. Make it slow, e.g. 5ms RTT.
-	np := createNetProxy(1*time.Millisecond, 1024*1024*1024, 1024*1024*1024, "route://127.0.0.1:14622", true)
-	routes := fmt.Sprintf("%s, route://127.0.0.1:16622", np.routeURL())
-	conf = fmt.Sprintf(tmpl, "S2", t.TempDir(), 15622, routes)
-	c.servers[1], c.opts[1] = RunServerWithConfig(createConfFile(t, []byte(conf)))
-
-	// S3
-	conf = fmt.Sprintf(tmpl, "S3", t.TempDir(), 16622, "route://127.0.0.1:14622, route://127.0.0.1:15622")
-	c.servers[2], c.opts[2] = RunServerWithConfig(createConfFile(t, []byte(conf)))
-
-	c.checkClusterFormed()
-	c.waitOnClusterReady()
-	defer c.shutdown()
-	defer np.stop()
-
-	nc, js := jsClientConnect(t, c.randomServer())
-	defer nc.Close()
-
-	// Now create the stream.
-	_, err := js.AddStream(&nats.StreamConfig{
-		Name:      "EVENTS",
-		Subjects:  []string{"EV.>"},
-		Replicas:  3,
-		Retention: nats.InterestPolicy,
-	})
-	require_NoError(t, err)
-
-	// Make sure it's leader is on S2.
-	sl := c.servers[1]
-	checkFor(t, 20*time.Second, 200*time.Millisecond, func() error {
-		c.waitOnStreamLeader(globalAccountName, "EVENTS")
-		if s := c.streamLeader(globalAccountName, "EVENTS"); s != sl {
-			s.JetStreamStepdownStream(globalAccountName, "EVENTS")
-			return fmt.Errorf("Server %s is not stream leader yet", sl)
-		}
-		return nil
-	})
-
-	// Now create the consumer.
-	_, err = js.AddConsumer("EVENTS", &nats.ConsumerConfig{
-		Durable:        "C",
-		AckPolicy:      nats.AckExplicitPolicy,
-		DeliverSubject: "dx",
-	})
-	require_NoError(t, err)
-
-	// Make sure the consumer leader is on S3.
-	cl := c.servers[2]
-	checkFor(t, 20*time.Second, 200*time.Millisecond, func() error {
-		c.waitOnConsumerLeader(globalAccountName, "EVENTS", "C")
-		if s := c.consumerLeader(globalAccountName, "EVENTS", "C"); s != cl {
-			s.JetStreamStepdownConsumer(globalAccountName, "EVENTS", "C")
-			return fmt.Errorf("Server %s is not consumer leader yet", sl)
-		}
-		return nil
-	})
-
-	// Create the real consumer on the consumer leader to make it efficient.
-	nc, js = jsClientConnect(t, cl)
-	defer nc.Close()
-
-	_, err = js.Subscribe(_EMPTY_, func(msg *nats.Msg) {
-		msg.Ack()
-	}, nats.BindStream("EVENTS"), nats.Durable("C"), nats.ManualAck())
-	require_NoError(t, err)
-
-	for i := 0; i < 1_000; i++ {
-		_, err := js.PublishAsync("EVENTS.PAID", []byte("ok"))
-		require_NoError(t, err)
-	}
-	select {
-	case <-js.PublishAsyncComplete():
-	case <-time.After(5 * time.Second):
-		t.Fatalf("Did not receive completion signal")
-	}
-
-	slow := c.servers[0]
-	mset, err := slow.GlobalAccount().lookupStream("EVENTS")
-	require_NoError(t, err)
-
-	// Make sure preAck is non-nil, so we know the logic has kicked in.
-	mset.mu.RLock()
-	preAcks := mset.preAcks
-	mset.mu.RUnlock()
-	require_NotNil(t, preAcks)
-
-	checkFor(t, 5*time.Second, 200*time.Millisecond, func() error {
-		state := mset.state()
-		if state.Msgs == 0 {
-			mset.mu.RLock()
-			lp := len(mset.preAcks)
-			mset.mu.RUnlock()
-			if lp == 0 {
-				return nil
-			} else {
-				t.Fatalf("Expected no preAcks with no msgs, but got %d", lp)
-			}
-		}
-		return fmt.Errorf("Still have %d msgs left", state.Msgs)
-	})
-
-}
-
-func TestJetStreamInterestLeakOnDisableJetStream(t *testing.T) {
+func TestJetStreamClusterInterestLeakOnDisableJetStream(t *testing.T) {
 	c := createJetStreamClusterExplicit(t, "R3S", 3)
 	defer c.shutdown()
 
@@ -3409,7 +3275,7 @@ func TestJetStreamInterestLeakOnDisableJetStream(t *testing.T) {
 	}
 }
 
-func TestJetStreamNoLeadersDuringLameDuck(t *testing.T) {
+func TestJetStreamClusterNoLeadersDuringLameDuck(t *testing.T) {
 	c := createJetStreamClusterExplicit(t, "R3S", 3)
 	defer c.shutdown()
 
@@ -3516,7 +3382,7 @@ func TestJetStreamNoLeadersDuringLameDuck(t *testing.T) {
 // it could miss the signal of a message going away. If that message was pending and expires the
 // ack floor could fall below the stream first sequence. This test will force that condition and
 // make sure the system resolves itself.
-func TestJetStreamConsumerAckFloorDrift(t *testing.T) {
+func TestJetStreamClusterConsumerAckFloorDrift(t *testing.T) {
 	c := createJetStreamClusterExplicit(t, "R3S", 3)
 	defer c.shutdown()
 
@@ -4121,4 +3987,414 @@ func TestJetStreamClusterStaleDirectGetOnRestart(t *testing.T) {
 	if len(errCh) > 0 {
 		t.Fatalf("Expected no errors but got %v", <-errCh)
 	}
+}
+
+// This test mimics a user's setup where there is a cloud cluster/domain, and one for eu and ap that are leafnoded into the
+// cloud cluster, and one for cn that is leafnoded into the ap cluster.
+// We broke basic connectivity in 2.9.17 from publishing in eu for delivery in cn on same account which is daisy chained through ap.
+// We will also test cross account delivery in this test as well.
+func TestJetStreamClusterLeafnodePlusDaisyChainSetup(t *testing.T) {
+	var cloudTmpl = `
+		listen: 127.0.0.1:-1
+		server_name: %s
+		jetstream: {max_mem_store: 256MB, max_file_store: 2GB, domain: CLOUD, store_dir: '%s'}
+
+		leaf { listen: 127.0.0.1:-1 }
+
+		cluster {
+			name: %s
+			listen: 127.0.0.1:%d
+			routes = [%s]
+		}
+
+		accounts {
+			F {
+				jetstream: enabled
+				users = [ { user: "F", pass: "pass" } ]
+				exports [ { stream: "F.>" } ]
+			}
+			T {
+				jetstream: enabled
+				users = [ { user: "T", pass: "pass" } ]
+				imports [ { stream: { account: F, subject: "F.>"} } ]
+			}
+			$SYS { users = [ { user: "admin", pass: "s3cr3t!" } ] }
+		}`
+
+	// Now create the cloud and make sure we are connected.
+	// Cloud
+	c := createJetStreamCluster(t, cloudTmpl, "CLOUD", _EMPTY_, 3, 22020, false)
+	defer c.shutdown()
+
+	var lnTmpl = `
+		listen: 127.0.0.1:-1
+		server_name: %s
+		jetstream: {max_mem_store: 256MB, max_file_store: 2GB, store_dir: '%s'}
+
+		{{leaf}}
+
+		cluster {
+			name: %s
+			listen: 127.0.0.1:%d
+			routes = [%s]
+		}
+
+		accounts {
+			F {
+				jetstream: enabled
+				users = [ { user: "F", pass: "pass" } ]
+				exports [ { stream: "F.>" } ]
+			}
+			T {
+				jetstream: enabled
+				users = [ { user: "T", pass: "pass" } ]
+				imports [ { stream: { account: F, subject: "F.>"} } ]
+			}
+			$SYS { users = [ { user: "admin", pass: "s3cr3t!" } ] }
+		}`
+
+	var leafFrag = `
+			leaf {
+				listen: 127.0.0.1:-1
+				remotes [ { urls: [ %s ], account: "T" }, { urls: [ %s ], account: "F" } ]
+			}`
+
+	genLeafTmpl := func(tmpl string, c *cluster) string {
+		t.Helper()
+		// Create our leafnode cluster template first.
+		var lnt, lnf []string
+		for _, s := range c.servers {
+			if s.ClusterName() != c.name {
+				continue
+			}
+			ln := s.getOpts().LeafNode
+			lnt = append(lnt, fmt.Sprintf("nats://T:pass@%s:%d", ln.Host, ln.Port))
+			lnf = append(lnf, fmt.Sprintf("nats://F:pass@%s:%d", ln.Host, ln.Port))
+		}
+		lntc := strings.Join(lnt, ", ")
+		lnfc := strings.Join(lnf, ", ")
+		return strings.Replace(tmpl, "{{leaf}}", fmt.Sprintf(leafFrag, lntc, lnfc), 1)
+	}
+
+	// Cluster EU
+	// Domain is "EU'
+	tmpl := strings.Replace(lnTmpl, "store_dir:", fmt.Sprintf(`domain: "%s", store_dir:`, "EU"), 1)
+	tmpl = genLeafTmpl(tmpl, c)
+	lceu := createJetStreamCluster(t, tmpl, "EU", "EU-", 3, 22110, false)
+	lceu.waitOnClusterReady()
+	defer lceu.shutdown()
+
+	for _, s := range lceu.servers {
+		checkLeafNodeConnectedCount(t, s, 2)
+	}
+
+	// Cluster AP
+	// Domain is "AP'
+	tmpl = strings.Replace(lnTmpl, "store_dir:", fmt.Sprintf(`domain: "%s", store_dir:`, "AP"), 1)
+	tmpl = genLeafTmpl(tmpl, c)
+	lcap := createJetStreamCluster(t, tmpl, "AP", "AP-", 3, 22180, false)
+	lcap.waitOnClusterReady()
+	defer lcap.shutdown()
+
+	for _, s := range lcap.servers {
+		checkLeafNodeConnectedCount(t, s, 2)
+	}
+
+	// Cluster CN
+	// Domain is "CN'
+	// This one connects to AP, not the cloud hub.
+	tmpl = strings.Replace(lnTmpl, "store_dir:", fmt.Sprintf(`domain: "%s", store_dir:`, "CN"), 1)
+	tmpl = genLeafTmpl(tmpl, lcap)
+	lccn := createJetStreamCluster(t, tmpl, "CN", "CN-", 3, 22280, false)
+	lccn.waitOnClusterReady()
+	defer lccn.shutdown()
+
+	for _, s := range lccn.servers {
+		checkLeafNodeConnectedCount(t, s, 2)
+	}
+
+	// Now connect to CN on account F and subscribe to data.
+	nc, _ := jsClientConnect(t, lccn.randomServer(), nats.UserInfo("F", "pass"))
+	defer nc.Close()
+	fsub, err := nc.SubscribeSync("F.EU.>")
+	require_NoError(t, err)
+
+	// Same for account T where the import is.
+	nc, _ = jsClientConnect(t, lccn.randomServer(), nats.UserInfo("T", "pass"))
+	defer nc.Close()
+	tsub, err := nc.SubscribeSync("F.EU.>")
+	require_NoError(t, err)
+
+	// Let sub propagate.
+	time.Sleep(500 * time.Millisecond)
+
+	// Now connect to EU on account F and generate data.
+	nc, _ = jsClientConnect(t, lceu.randomServer(), nats.UserInfo("F", "pass"))
+	defer nc.Close()
+
+	num := 10
+	for i := 0; i < num; i++ {
+		err := nc.Publish("F.EU.DATA", []byte(fmt.Sprintf("MSG-%d", i)))
+		require_NoError(t, err)
+	}
+
+	checkSubsPending(t, fsub, num)
+	// Since we export and import in each cluster, we will receive 4x.
+	// First hop from EU -> CLOUD is 1F and 1T
+	// Second hop from CLOUD -> AP is 1F, 1T and another 1T
+	// Third hop from AP -> CN is 1F, 1T, 1T and 1T
+	// Each cluster hop that has the export/import mapping will add another T message copy.
+	checkSubsPending(t, tsub, num*4)
+
+	// Create stream in cloud.
+	nc, js := jsClientConnect(t, c.randomServer(), nats.UserInfo("F", "pass"))
+	defer nc.Close()
+
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     "TEST",
+		Subjects: []string{"TEST.>"},
+		Replicas: 3,
+	})
+	require_NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		sendStreamMsg(t, nc, fmt.Sprintf("TEST.%d", i), "OK")
+	}
+
+	// Now connect to EU.
+	nc, js = jsClientConnect(t, lceu.randomServer(), nats.UserInfo("F", "pass"))
+	defer nc.Close()
+
+	// Create a mirror.
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name: "M",
+		Mirror: &nats.StreamSource{
+			Name:   "TEST",
+			Domain: "CLOUD",
+		},
+	})
+	require_NoError(t, err)
+
+	checkFor(t, time.Second, 200*time.Millisecond, func() error {
+		si, err := js.StreamInfo("M")
+		require_NoError(t, err)
+		if si.State.Msgs == 100 {
+			return nil
+		}
+		return fmt.Errorf("State not current: %+v", si.State)
+	})
+}
+
+// https://github.com/nats-io/nats-server/pull/4197
+func TestJetStreamClusterPurgeExReplayAfterRestart(t *testing.T) {
+	c := createJetStreamClusterExplicit(t, "P3F", 3)
+	defer c.shutdown()
+
+	// Client based API
+	nc, js := jsClientConnect(t, c.randomServer())
+	defer nc.Close()
+
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "TEST",
+		Subjects: []string{"TEST.>"},
+		Replicas: 3,
+	})
+	require_NoError(t, err)
+
+	sendStreamMsg(t, nc, "TEST.0", "OK")
+	sendStreamMsg(t, nc, "TEST.1", "OK")
+	sendStreamMsg(t, nc, "TEST.2", "OK")
+
+	runTest := func(f func(js nats.JetStreamManager)) *nats.StreamInfo {
+		nc, js := jsClientConnect(t, c.randomServer())
+		defer nc.Close()
+
+		// install snapshot, then execute interior func, ensuring the purge will be recovered later
+		fsl := c.streamLeader(globalAccountName, "TEST")
+		fsl.JetStreamSnapshotStream(globalAccountName, "TEST")
+
+		f(js)
+		time.Sleep(250 * time.Millisecond)
+
+		fsl.Shutdown()
+		fsl.WaitForShutdown()
+		fsl = c.restartServer(fsl)
+		c.waitOnServerCurrent(fsl)
+
+		nc, js = jsClientConnect(t, c.randomServer())
+		defer nc.Close()
+
+		c.waitOnStreamLeader(globalAccountName, "TEST")
+		sl := c.streamLeader(globalAccountName, "TEST")
+
+		// keep stepping down so the stream leader matches the initial leader
+		// we need to check if it restored from the snapshot properly
+		for sl != fsl {
+			_, err := nc.Request(fmt.Sprintf(JSApiStreamLeaderStepDownT, "TEST"), nil, time.Second)
+			require_NoError(t, err)
+			c.waitOnStreamLeader(globalAccountName, "TEST")
+			sl = c.streamLeader(globalAccountName, "TEST")
+		}
+
+		si, err := js.StreamInfo("TEST")
+		require_NoError(t, err)
+		return si
+	}
+	si := runTest(func(js nats.JetStreamManager) {
+		err = js.PurgeStream("TEST", &nats.StreamPurgeRequest{Subject: "TEST.0"})
+		require_NoError(t, err)
+	})
+	if si.State.Msgs != 2 {
+		t.Fatalf("Expected 2 msgs after restart, got %d", si.State.Msgs)
+	}
+	if si.State.FirstSeq != 2 || si.State.LastSeq != 3 {
+		t.Fatalf("Expected FirstSeq=2, LastSeq=3 after restart, got FirstSeq=%d, LastSeq=%d",
+			si.State.FirstSeq, si.State.LastSeq)
+	}
+
+	si = runTest(func(js nats.JetStreamManager) {
+		err = js.PurgeStream("TEST")
+		require_NoError(t, err)
+		// Send 2 more messages.
+		sendStreamMsg(t, nc, "TEST.1", "OK")
+		sendStreamMsg(t, nc, "TEST.2", "OK")
+	})
+	if si.State.Msgs != 2 {
+		t.Fatalf("Expected 2 msgs after restart, got %d", si.State.Msgs)
+	}
+	if si.State.FirstSeq != 4 || si.State.LastSeq != 5 {
+		t.Fatalf("Expected FirstSeq=4, LastSeq=5 after restart, got FirstSeq=%d, LastSeq=%d",
+			si.State.FirstSeq, si.State.LastSeq)
+	}
+
+	// Now test a keep
+	si = runTest(func(js nats.JetStreamManager) {
+		err = js.PurgeStream("TEST", &nats.StreamPurgeRequest{Keep: 1})
+		require_NoError(t, err)
+		// Send 4 more messages.
+		sendStreamMsg(t, nc, "TEST.1", "OK")
+		sendStreamMsg(t, nc, "TEST.2", "OK")
+		sendStreamMsg(t, nc, "TEST.3", "OK")
+		sendStreamMsg(t, nc, "TEST.1", "OK")
+	})
+	if si.State.Msgs != 5 {
+		t.Fatalf("Expected 5 msgs after restart, got %d", si.State.Msgs)
+	}
+	if si.State.FirstSeq != 5 || si.State.LastSeq != 9 {
+		t.Fatalf("Expected FirstSeq=5, LastSeq=9 after restart, got FirstSeq=%d, LastSeq=%d",
+			si.State.FirstSeq, si.State.LastSeq)
+	}
+
+	// Now test a keep on a subject
+	si = runTest(func(js nats.JetStreamManager) {
+		err = js.PurgeStream("TEST", &nats.StreamPurgeRequest{Subject: "TEST.1", Keep: 1})
+		require_NoError(t, err)
+		// Send 3 more messages.
+		sendStreamMsg(t, nc, "TEST.1", "OK")
+		sendStreamMsg(t, nc, "TEST.2", "OK")
+		sendStreamMsg(t, nc, "TEST.3", "OK")
+	})
+	if si.State.Msgs != 7 {
+		t.Fatalf("Expected 7 msgs after restart, got %d", si.State.Msgs)
+	}
+	if si.State.FirstSeq != 5 || si.State.LastSeq != 12 {
+		t.Fatalf("Expected FirstSeq=5, LastSeq=12 after restart, got FirstSeq=%d, LastSeq=%d",
+			si.State.FirstSeq, si.State.LastSeq)
+	}
+}
+
+func TestJetStreamClusterConsumerCleanupWithSameName(t *testing.T) {
+	c := createJetStreamClusterExplicit(t, "R3F", 3)
+	defer c.shutdown()
+
+	// Client based API
+	nc, js := jsClientConnect(t, c.randomServer())
+	defer nc.Close()
+
+	_, err := js.AddStream(&nats.StreamConfig{
+		Name:     "UPDATES",
+		Subjects: []string{"DEVICE.*"},
+		Replicas: 3,
+	})
+	require_NoError(t, err)
+
+	// Create a consumer that will be an R1 that we will auto-recreate but using the same name.
+	// We want to make sure that the system does not continually try to cleanup the new one from the old one.
+
+	// Track the sequence for restart etc.
+	var seq atomic.Uint64
+
+	msgCB := func(msg *nats.Msg) {
+		msg.AckSync()
+		meta, err := msg.Metadata()
+		require_NoError(t, err)
+		seq.Store(meta.Sequence.Stream)
+	}
+
+	waitOnSeqDelivered := func(expected uint64) {
+		checkFor(t, 10*time.Second, 200*time.Millisecond, func() error {
+			received := seq.Load()
+			if received == expected {
+				return nil
+			}
+			return fmt.Errorf("Seq is %d, want %d", received, expected)
+		})
+	}
+
+	doSub := func() {
+		_, err = js.Subscribe(
+			"DEVICE.22",
+			msgCB,
+			nats.ConsumerName("dlc"),
+			nats.SkipConsumerLookup(),
+			nats.StartSequence(seq.Load()+1),
+			nats.MaxAckPending(1), // One at a time.
+			nats.ManualAck(),
+			nats.ConsumerReplicas(1),
+			nats.ConsumerMemoryStorage(),
+			nats.MaxDeliver(1),
+			nats.InactiveThreshold(time.Second),
+			nats.IdleHeartbeat(250*time.Millisecond),
+		)
+		require_NoError(t, err)
+	}
+
+	// Track any errors for consumer not active so we can recreate the consumer.
+	errCh := make(chan error, 10)
+	nc.SetErrorHandler(func(c *nats.Conn, s *nats.Subscription, err error) {
+		if errors.Is(err, nats.ErrConsumerNotActive) {
+			s.Unsubscribe()
+			errCh <- err
+			doSub()
+		}
+	})
+
+	doSub()
+
+	sendStreamMsg(t, nc, "DEVICE.22", "update-1")
+	sendStreamMsg(t, nc, "DEVICE.22", "update-2")
+	sendStreamMsg(t, nc, "DEVICE.22", "update-3")
+	waitOnSeqDelivered(3)
+
+	// Shutdown the consumer's leader.
+	s := c.consumerLeader(globalAccountName, "UPDATES", "dlc")
+	s.Shutdown()
+	c.waitOnStreamLeader(globalAccountName, "UPDATES")
+
+	// In case our client connection was to the same server.
+	nc, _ = jsClientConnect(t, c.randomServer())
+	defer nc.Close()
+
+	sendStreamMsg(t, nc, "DEVICE.22", "update-4")
+	sendStreamMsg(t, nc, "DEVICE.22", "update-5")
+	sendStreamMsg(t, nc, "DEVICE.22", "update-6")
+
+	// Wait for the consumer not active error.
+	<-errCh
+	// Now restart server with the old consumer.
+	c.restartServer(s)
+	// Wait on all messages delivered.
+	waitOnSeqDelivered(6)
+	// Make sure no other errors showed up
+	require_True(t, len(errCh) == 0)
 }
