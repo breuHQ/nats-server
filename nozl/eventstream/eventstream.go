@@ -97,11 +97,16 @@ func (n *eventstream) PublishMessage(subject string, msg string) {
 }
 
 func (n *eventstream) CreateKeyValStore(bucket string, description string, replicationFactor int) (nats.KeyValue, error) {
-	keyval, err := n.Stream.CreateKeyValue(&nats.KeyValueConfig{
+	config := &nats.KeyValueConfig{
 		Bucket:      bucket,
 		Description: description,
 		Replicas:    replicationFactor,
-	})
+	}
+	if bucket == shared.FilterLimiterKV {
+		config.TTL = time.Duration(10) * time.Second
+	}
+
+	keyval, err := n.Stream.CreateKeyValue(config)
 	if err != nil {
 		shared.Logger.Error("Unable to create Key Value Store " + err.Error())
 	}
