@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -229,6 +230,13 @@ func GetPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formData := formValues.Encode()
 	payload := strings.NewReader(formData)
 	return payload
+}
+
+func GetJsonPayloadFromMsg(msg * eventstream.Message) io.Reader {
+	payload, _ := json.Marshal(msg.ReqBody)
+	reader := bytes.NewReader(payload)
+
+	return reader
 }
 
 func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
