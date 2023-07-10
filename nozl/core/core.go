@@ -270,7 +270,7 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 		return err
 	}
 
-	t := service.Twilio{}
+	t := service.TwilioHTTP{}
 	result, err := t.GenericHTTPRequest(serv, msg)
 
 	if err != nil {
@@ -302,7 +302,7 @@ func (c *core) LogSentMessage(msg *eventstream.Message) error {
 }
 
 func (c *core) getServiceFromMsg(msg *eventstream.Message) (*service.Service, error) {
-	currService := service.NewService("", "", "", "")
+	currService := service.NewService("", map[string]string{}, "", "")
 
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
