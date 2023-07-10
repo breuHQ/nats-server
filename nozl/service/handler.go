@@ -64,6 +64,8 @@ func CreateServiceHandler(ctx echo.Context) error {
 						"message": fmt.Sprintf(duplicateMsgResponse, SendGrid),
 					})
 				}
+			// TODO: design duplication check for custom integrations
+			case Custom:
 			}
 
 		}
