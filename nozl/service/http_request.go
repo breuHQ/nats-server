@@ -17,11 +17,11 @@ type HTTPClient interface {
 	GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error)
 }
 
-type Twilio struct{}
+type TwilioHTTP struct{}
 
-func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
-	sid := svc.AccountSID
-	authToken := svc.AuthToken
+func (t *TwilioHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
+	sid := svc.AuthDetails["account_sid"]
+	authToken := svc.AuthDetails["auth_token"]
 	authKey := t.basicAuth(sid, authToken)
 	rgx := regexp.MustCompile("{AccountSid}")
 
@@ -86,7 +86,7 @@ func (t *Twilio) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]b
 	return json.Marshal(serviceResponse)
 }
 
-func (t *Twilio) basicAuth(username, password string) string {
+func (t *TwilioHTTP) basicAuth(username, password string) string {
 	auth := username + ":" + password
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
