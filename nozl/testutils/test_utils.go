@@ -98,9 +98,9 @@ func RegisterTenant(url string, authToken string) *tenant.Tenant {
 
 func RegisterService(url string, authToken string) *service.Service {
 	svcName := "twilio"
-	svcAccountSID := "ACe4c8ac5725c5c02c75aec71f53cc69e4"
+	// svcAccountSID := "ACe4c8ac5725c5c02c75aec71f53cc69e4"
 	svcAuthToken := "3ffa94991aa2a5c0246800cd1f1a5616"
-	svc := service.NewService(svcName, svcAccountSID, svcAuthToken, "")
+	svc := service.NewService(svcName, map[string]string{}, svcAuthToken, "")
 	jsonData, err := json.Marshal(svc)
 
 	if err != nil {

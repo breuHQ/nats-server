@@ -14,11 +14,11 @@ import (
 )
 
 func CreateServiceHandler(ctx echo.Context) error {
-	newService := NewService("", "", "", "")
+	newService := NewService("", map[string]string{}, "", "")
 
 	if err := ctx.Bind(&newService); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Unable to parse request's body",
+			"message": "Unable to parse request body",
 		})
 	}
 
@@ -38,28 +38,34 @@ func CreateServiceHandler(ctx echo.Context) error {
 			shared.Logger.Error(fmt.Sprintf("Key array is empty: %s", err.Error()))
 
 			return ctx.JSON(http.StatusInternalServerError, echo.Map{
-				"message": "Unable to retreive keys from the Key Value store",
+				"message": "Unable to retreive keys from the Service Key Value store",
 			})
 		}
 
 		for _, key := range keys {
-			value, err := kv.Get(key)
-			if err != nil {
-				return ctx.JSON(http.StatusInternalServerError, echo.Map{
-					"message": "Unable to retreive value from the Key Value store",
-				})
-			}
-
+			value, _ := kv.Get(key)
 			existingService := new(Service)
+			duplicateMsgResponse := "Service of type %s with same auth details already exists"
+
 			if err := json.Unmarshal(value.Value(), &existingService); err != nil {
 				shared.Logger.Error(err.Error())
 			}
 
-			if existingService.AccountSID == newService.AccountSID {
-				return ctx.JSON(http.StatusConflict, echo.Map{
-					"message": "Service already exists",
-				})
+			switch existingService.Category {
+			case Twilio:
+				if existingService.AuthDetails["account_sid"] == newService.AuthDetails["account_sid"] {
+					return ctx.JSON(http.StatusConflict, echo.Map{
+						"message": fmt.Sprintf(duplicateMsgResponse, Twilio),
+					})
+				}
+			case SendGrid:
+				if existingService.AuthDetails["api_key"] == newService.AuthDetails["api_key"] {
+					return ctx.JSON(http.StatusConflict, echo.Map{
+						"message": fmt.Sprintf(duplicateMsgResponse, SendGrid),
+					})
+				}
 			}
+
 		}
 	}
 
@@ -67,11 +73,11 @@ func CreateServiceHandler(ctx echo.Context) error {
 
 	if _, err = kv.Put(newService.ID, jsonPayload); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Unable to save service information",
+			"message": "Unable to persist Service information",
 		})
 	}
 
-	addMainLimitertoKVStore(newService)
+	addMainLimitertoKVStore(newService) // TODO: rename this to addServiceLimiterToKVStore
 
 	return ctx.JSON(http.StatusCreated, newService)
 }
