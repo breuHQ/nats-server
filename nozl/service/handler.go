@@ -64,6 +64,10 @@ func CreateServiceHandler(ctx echo.Context) error {
 						"message": fmt.Sprintf(duplicateMsgResponse, SendGrid),
 					})
 				}
+			
+			// TODO: add check for vonage
+			case Vonage:
+
 			// TODO: design duplication check for custom integrations
 			case Custom:
 			}
