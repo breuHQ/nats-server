@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,11 @@ type Schema struct {
 	File        SchemaFile
 }
 
+const (
+	JsonContent     string = "application/json"
+	XURLFormEncoded string = "application/x-www-form-urlencoded"
+)
+
 func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
 	return Schema{
 		BaseUrl:     baseUrl,
@@ -30,6 +36,41 @@ func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operatio
 		HttpMethod:  httpMethod,
 		PathDetails: pathDetails,
 		File:        schemaFile,
+	}
+}
+
+func traverseSchemaMapForRefs(pathSchemaProps *openapi3.SchemaRef) {
+	items := pathSchemaProps.Value.Items
+	properties := pathSchemaProps.Value.Properties
+
+	if items != nil {
+		items.Ref = ""
+		traverseSchemaMapForRefs(items)
+	}
+
+	if pathSchemaProps.Value.Properties != nil {
+		for _, prop := range properties {
+			prop.Ref = ""
+			traverseSchemaMapForRefs(prop)
+		}
+	}
+}
+
+func setSchemaRefToNull(operation *openapi3.Operation) {
+	if operation.RequestBody != nil {
+		var contentType string
+		for key, _ := range operation.RequestBody.Value.Content {
+			contentType = key
+		}
+
+		reqBodySchema := operation.RequestBody.Value.Content[contentType].Schema
+		if reqBodySchema.Ref != "" {
+			reqBodySchema.Ref = ""
+		}
+
+		// Go through request body schema's properties
+		// and items recursively, and make there Ref empty
+		traverseSchemaMapForRefs(reqBodySchema)
 	}
 }
 
@@ -82,21 +123,33 @@ func ParseOpenApiV3Schema(serviceID string, specFile []byte, fileName string, up
 	}
 
 	for pathKey, pathValue := range doc.Paths {
-		baseUrl := pathValue.Servers[0].URL
+		baseUrl := ""
 
+		// If the path doesn't have it's own server URL
+		// use other URL specified at start of API spec file
+		if pathValue.Servers != nil {
+			baseUrl = pathValue.Servers[0].URL
+		} else {
+			baseUrl = doc.Servers[0].URL
+		}
 		if pathValue.Get != nil {
+			setSchemaRefToNull(pathValue.Get)
 			AddSchemaToKVStore(serviceID, pathKey, "GET", pathValue.Get, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Post != nil {
+			setSchemaRefToNull(pathValue.Post)
 			AddSchemaToKVStore(serviceID, pathKey, "POST", pathValue.Post, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Put != nil {
+			setSchemaRefToNull(pathValue.Put)
 			AddSchemaToKVStore(serviceID, pathKey, "PUT", pathValue.Put, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Patch != nil {
+			setSchemaRefToNull(pathValue.Patch)
 			AddSchemaToKVStore(serviceID, pathKey, "PATCH", pathValue.Patch, baseUrl, schemaFile, updateOperations)
 		}
 		if pathValue.Delete != nil {
+			setSchemaRefToNull(pathValue.Delete)
 			AddSchemaToKVStore(serviceID, pathKey, "DELETE", pathValue.Delete, baseUrl, schemaFile, updateOperations)
 		}
 	}
@@ -174,7 +227,15 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 			headers["Content-Type"] = key
 		}
 	}
-	payload := GetPayloadFromMsg(msg)
+
+	var payload io.Reader
+	switch headers["Content-Type"] {
+	case JsonContent:
+		payload = GetJsonPayloadFromMsg(msg)
+	case XURLFormEncoded:
+		payload = GetXURLFormEncodedPayloadFromMsg(msg)
+	}
+
 	pathParams := GetPathParamsFromMsg(msg)
 	queryParams := GetQueryParamsFromMsg(msg)
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
@@ -187,6 +248,14 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		Request:     httpReq,
 		PathParams:  pathParams,
 		QueryParams: queryParams,
+		// Skip setting default values. This is required for Vonnage type
+		// APIs as Kin throws error related with unsupported content-type
+		// 'application/x-www-form-urlencoded'
+		// Issue link: https://github.com/getkin/kin-openapi/issues/639
+		// Fix link: https://github.com/getkin/kin-openapi/pull/662/files
+		Options: &openapi3filter.Options{
+			SkipSettingDefaults: true,
+		},
 	}
 
 	ctx := context.Background()
@@ -220,7 +289,7 @@ func GetQueryParamsFromMsg(msg *eventstream.Message) url.Values {
 	return urlValues
 }
 
-func GetPayloadFromMsg(msg *eventstream.Message) io.Reader {
+func GetXURLFormEncodedPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formValues := url.Values{}
 	for key, val := range msg.ReqBody {
 		formValues.Set(key, val.(string))
@@ -229,6 +298,13 @@ func GetPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formData := formValues.Encode()
 	payload := strings.NewReader(formData)
 	return payload
+}
+
+func GetJsonPayloadFromMsg(msg *eventstream.Message) io.Reader {
+	payload, _ := json.Marshal(msg.ReqBody)
+	reader := bytes.NewReader(payload)
+
+	return reader
 }
 
 func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {

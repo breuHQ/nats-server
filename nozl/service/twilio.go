@@ -9,8 +9,8 @@ import (
 
 func (s *Service) SendMsgTwilio(msg *eventstream.Message) error {
 	client := twilio.NewRestClientWithParams(twilio.ClientParams{
-		Username: s.AccountSID,
-		Password: s.AuthToken,
+		Username: s.AuthDetails["account_sid"],
+		Password: s.AuthDetails["auth_token"],
 	})
 
 	params := &twilioApi.CreateMessageParams{}

@@ -18,7 +18,7 @@ const (
 	TenantAPIKV           string = "TenanatApiKey"
 	UserKV                string = "User"
 	MsgWaitListKV         string = "MsgWaitList"
-	SchemaKV              string = "schema"
+	SchemaKV              string = "Schema"
 	SchemaFileKV          string = "SchemaFile"
 	FilterLimiterKV       string = "FilterLimter"
 	MainLimiterKV         string = "MainLimiter"

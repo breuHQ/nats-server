@@ -4,22 +4,29 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	Twilio string = "Twilio"
+	SendGrid string = "SendGrid"
+	Vonage string = "Vonage"
+	Custom string = "Custom"
+)
+
 type (
+	// TODO: Fix JSON validation issues
 	Service struct {
 		ID         string `json:"id"`
 		Name       string `json:"name"`
-		AccountSID string `json:"account_sid"`
-		AuthToken  string `json:"auth_token"`
 		FilterOn   string `json:"filter_on"`
+		AuthDetails map[string]string `json:"auth_details"`
+		Category   string `json:"category"`
 	}
 )
 
-func NewService(name string, accountSID string, authToken string, filterOn string) *Service {
+func NewService(name string, authDetails map[string]string, filterOn string, category string) *Service {
 	return &Service{
 		ID:         uuid.New().String(),
 		Name:       name,
-		AccountSID: accountSID,
-		AuthToken:  authToken,
 		FilterOn:   filterOn,
+		Category:   category,
 	}
 }

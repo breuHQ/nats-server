@@ -270,8 +270,19 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 		return err
 	}
 
-	t := service.Twilio{}
-	result, err := t.GenericHTTPRequest(serv, msg)
+	t := service.TwilioHTTP{}
+	v := service.VonageHTTP{}
+	sg := service.SendGridHTTP{}
+	var result []byte
+
+	switch serv.Category {
+	case service.Twilio:
+		result, err = t.GenericHTTPRequest(serv, msg)
+	case service.Vonage:
+		result, err = v.GenericHTTPRequest(serv, msg)
+	case service.SendGrid:
+		result, err = sg.GenericHTTPRequest(serv, msg)
+	}
 
 	if err != nil {
 		return err
@@ -302,7 +313,7 @@ func (c *core) LogSentMessage(msg *eventstream.Message) error {
 }
 
 func (c *core) getServiceFromMsg(msg *eventstream.Message) (*service.Service, error) {
-	currService := service.NewService("", "", "", "")
+	currService := service.NewService("", map[string]string{}, "", "")
 
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
