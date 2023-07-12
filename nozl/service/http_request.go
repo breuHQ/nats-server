@@ -21,6 +21,8 @@ type TwilioHTTP struct{}
 type SendGridHTTP struct{}
 type VonageHTTP struct{}
 
+// TODO: Extract common logic from all 3 Generic HTTP methods
+
 func (sg *SendGridHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
 	schemaValid, err := schema.GetMsgRefSchema(msg)
 
@@ -104,7 +106,7 @@ func (t *TwilioHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) 
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetPayloadFromMsg(msg)
+		payload = schema.GetXURLFromEncodedPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
@@ -156,7 +158,7 @@ func (t *TwilioHTTP) basicAuth(username, password string) string {
 func (v *VonageHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
 	schemaValid, err := schema.GetMsgRefSchema(msg)
 	rgx := regexp.MustCompile("{format}")
-	updatedPath := rgx.ReplaceAllString(schemaValid.Path, "json")
+	updatedPath := rgx.ReplaceAllString(schemaValid.Path, "json") // TODO: get this value from schema directly
 
 	if err != nil {
 		shared.Logger.Error(err.Error())
@@ -170,7 +172,7 @@ func (v *VonageHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) 
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetPayloadFromMsg(msg)
+		payload = schema.GetXURLFromEncodedPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
