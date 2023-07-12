@@ -7,6 +7,7 @@ import (
 const (
 	Twilio string = "Twilio"
 	SendGrid string = "SendGrid"
+	Vonage string = "Vonage"
 	Custom string = "Custom"
 )
 

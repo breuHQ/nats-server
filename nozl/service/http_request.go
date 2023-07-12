@@ -18,10 +18,9 @@ type HTTPClient interface {
 }
 
 type TwilioHTTP struct{}
-
 type SendGridHTTP struct{}
+type VonageHTTP struct{}
 
-// TODO: Fix schema ref issues
 func (sg *SendGridHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
 	schemaValid, err := schema.GetMsgRefSchema(msg)
 
@@ -38,7 +37,7 @@ func (sg *SendGridHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Messag
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetPayloadFromMsg(msg)
+		payload = schema.GetJsonPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
@@ -152,4 +151,65 @@ func (t *TwilioHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) 
 func (t *TwilioHTTP) basicAuth(username, password string) string {
 	auth := username + ":" + password
 	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+func (v *VonageHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) ([]byte, error) {
+	schemaValid, err := schema.GetMsgRefSchema(msg)
+	rgx := regexp.MustCompile("{format}")
+	updatedPath := rgx.ReplaceAllString(schemaValid.Path, "json")
+
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	ep := schemaValid.BaseUrl + updatedPath
+	headers := make(map[string]string)
+	var payload io.Reader
+
+	if schemaValid.PathDetails.RequestBody != nil {
+		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
+			headers["Content-Type"] = key
+		}
+		payload = schema.GetPayloadFromMsg(msg)
+	} else {
+		payload = bytes.NewBuffer([]byte{})
+	}
+
+	httpReq, err := http.NewRequest(schemaValid.HttpMethod, ep, payload)
+
+	for key, val := range headers {
+		httpReq.Header.Add(key, val)
+	}
+
+	client := &http.Client{}
+
+	response, err := client.Do(httpReq)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	defer response.Body.Close()
+
+	respBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	var js map[string]interface{}
+
+	if err := json.Unmarshal(respBody, &js); err != nil {
+		shared.Logger.Error(err.Error())
+	}
+
+	shared.Logger.Info(response.Status)
+	shared.Logger.Info(string(respBody))
+
+	serviceResponse := make(map[string]interface{})
+	serviceResponse["status"] = response.Status
+
+	for key, val := range js {
+		serviceResponse[key] = val
+	}
+
+	return json.Marshal(serviceResponse)
 }
