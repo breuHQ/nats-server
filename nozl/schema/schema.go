@@ -26,7 +26,7 @@ type Schema struct {
 
 const (
 	JsonContent     string = "application/json"
-	XURLFromEncoded string = "application/x-www-form-urlencoded"
+	XURLFormEncoded string = "application/x-www-form-urlencoded"
 )
 
 func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
@@ -232,8 +232,8 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 	switch headers["Content-Type"] {
 	case JsonContent:
 		payload = GetJsonPayloadFromMsg(msg)
-	case XURLFromEncoded:
-		payload = GetXURLFromEncodedPayloadFromMsg(msg)
+	case XURLFormEncoded:
+		payload = GetXURLFormEncodedPayloadFromMsg(msg)
 	}
 
 	pathParams := GetPathParamsFromMsg(msg)
@@ -289,7 +289,7 @@ func GetQueryParamsFromMsg(msg *eventstream.Message) url.Values {
 	return urlValues
 }
 
-func GetXURLFromEncodedPayloadFromMsg(msg *eventstream.Message) io.Reader {
+func GetXURLFormEncodedPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formValues := url.Values{}
 	for key, val := range msg.ReqBody {
 		formValues.Set(key, val.(string))
