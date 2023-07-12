@@ -248,6 +248,14 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		Request:     httpReq,
 		PathParams:  pathParams,
 		QueryParams: queryParams,
+		// Skip setting default values. This is required for Vonnage type
+		// APIs as Kin throws error related with unsupported content-type
+		// 'application/x-www-form-urlencoded'
+		// Issue link: https://github.com/getkin/kin-openapi/issues/639
+		// Fix link: https://github.com/getkin/kin-openapi/pull/662/files
+		Options: &openapi3filter.Options{
+			SkipSettingDefaults: true,
+		},
 	}
 
 	ctx := context.Background()
