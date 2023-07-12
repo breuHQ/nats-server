@@ -271,7 +271,18 @@ func (c *core) sendToService(msg *eventstream.Message) error {
 	}
 
 	t := service.TwilioHTTP{}
-	result, err := t.GenericHTTPRequest(serv, msg)
+	v := service.VonageHTTP{}
+	sg := service.SendGridHTTP{}
+	var result []byte
+
+	switch serv.Category {
+	case service.Twilio:
+		result, err = t.GenericHTTPRequest(serv, msg)
+	case service.Vonage:
+		result, err = v.GenericHTTPRequest(serv, msg)
+	case service.SendGrid:
+		result, err = sg.GenericHTTPRequest(serv, msg)
+	}
 
 	if err != nil {
 		return err
