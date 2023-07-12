@@ -24,6 +24,11 @@ type Schema struct {
 	File        SchemaFile
 }
 
+const (
+	JsonContent     string = "application/json"
+	XURLFromEncoded string = "application/x-www-form-urlencoded"
+)
+
 func newSchema(pathKey string, httpMethod string, pathDetails *openapi3.Operation, baseUrl string, schemaFile SchemaFile) Schema {
 	return Schema{
 		BaseUrl:     baseUrl,
@@ -59,6 +64,9 @@ func setSchemaRefToNull(operation *openapi3.Operation) {
 		}
 
 		reqBodySchema := operation.RequestBody.Value.Content[contentType].Schema
+		if reqBodySchema.Ref != "" {
+			reqBodySchema.Ref = ""
+		}
 
 		// Go through request body schema's properties
 		// and items recursively, and make there Ref empty
@@ -220,7 +228,14 @@ func ValidateOpenAPIV3Schema(msg *eventstream.Message) error {
 		}
 	}
 
-	payload := GetJsonPayloadFromMsg(msg) // TODO: add category based check
+	var payload io.Reader
+	switch headers["Content-Type"] {
+	case JsonContent:
+		payload = GetJsonPayloadFromMsg(msg)
+	case XURLFromEncoded:
+		payload = GetXURLFromEncodedPayloadFromMsg(msg)
+	}
+
 	pathParams := GetPathParamsFromMsg(msg)
 	queryParams := GetQueryParamsFromMsg(msg)
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, schemaValid.Path, payload)
@@ -266,7 +281,7 @@ func GetQueryParamsFromMsg(msg *eventstream.Message) url.Values {
 	return urlValues
 }
 
-func GetPayloadFromMsg(msg *eventstream.Message) io.Reader {
+func GetXURLFromEncodedPayloadFromMsg(msg *eventstream.Message) io.Reader {
 	formValues := url.Values{}
 	for key, val := range msg.ReqBody {
 		formValues.Set(key, val.(string))
