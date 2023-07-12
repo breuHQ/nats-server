@@ -106,7 +106,7 @@ func (t *TwilioHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) 
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetXURLFromEncodedPayloadFromMsg(msg)
+		payload = schema.GetXURLFormEncodedPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
@@ -172,7 +172,7 @@ func (v *VonageHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Message) 
 		for key, _ := range schemaValid.PathDetails.RequestBody.Value.Content {
 			headers["Content-Type"] = key
 		}
-		payload = schema.GetXURLFromEncodedPayloadFromMsg(msg)
+		payload = schema.GetXURLFormEncodedPayloadFromMsg(msg)
 	} else {
 		payload = bytes.NewBuffer([]byte{})
 	}
