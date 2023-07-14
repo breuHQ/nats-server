@@ -163,13 +163,26 @@ func updateLimitInLimiter(kv nats.KeyValue, key string, limit int) {
 
 	fl := &rate.Limiter{}
 	err := json.Unmarshal(flRaw.Value(), fl)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
 	fl.SetLimit(rate.Limit(limit))
 	fl.SetBurst(limit)
 
 	flUpdated, err := json.Marshal(fl)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 	_, err = kv.Put(key, flUpdated)
 	if err != nil {
 		shared.Logger.Error(err.Error())
+	}
+}
+
+func allowMessage(Allow bool, Reason string) {
+	eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
+		Allow:  Allow,
+		Reason: Reason, // TODO: return schema specific error
 	}
 }

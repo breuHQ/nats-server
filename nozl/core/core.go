@@ -116,9 +116,15 @@ func (c *core) filterLimiterAllow(msg *eventstream.Message, filterOnID string) b
 
 	fl := &rate.Limiter{}
 	err = json.Unmarshal(flRaw.Value(), fl)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
 	allow := fl.Allow()
 	flUpdated, err := json.Marshal(fl)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 	_, err = kv.Put(filterOnID, flUpdated)
 	if err != nil {
 		shared.Logger.Error(err.Error())
@@ -141,6 +147,9 @@ func (c *core) mainLimiterWait(msg *eventstream.Message) error {
 
 	ml := &rate.Limiter{}
 	err = json.Unmarshal(mlRaw.Value(), ml)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
 	if err := ml.Wait(context.Background()); err != nil {
 		return err
@@ -178,7 +187,6 @@ func (c *core) RegisterFilter(kv nats.KeyValue, filterOnID string) {
 		shared.Logger.Error(err.Error())
 		return
 	}
-	return
 }
 
 func (c *core) handleLimiter(msg *eventstream.Message) {
@@ -194,49 +202,16 @@ func (c *core) handleLimiter(msg *eventstream.Message) {
 		zap.String("Subject", "MainLimiter"),
 		zap.String("Status", "Allowed"),
 	)
-	return
 }
 
-func (c *core) handleFilter(msg *eventstream.Message) {
-	err := schema.ValidateOpenAPIV3Schema(msg)
-	if err != nil {
-		// TODO: Decide later if this message should be sent to dead letter queue
-		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-			Allow:  false,
-			Reason: string(err.Error()), // TODO: return schema specific error
-		}
-		shared.Logger.Error(err.Error())
-		return
-	}
-	serv, err := c.getServiceFromMsg(msg)
-	if err != nil {
-		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-			Allow:  false,
-			Reason: string(err.Error()),
-		}
-		shared.Logger.Error(err.Error())
-		return
-	}
-	filterOnID, exists := msg.ReqBody[serv.FilterOn]
-	if exists == false {
-		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-			Allow:  false,
-			Reason: fmt.Sprintf("Incorrect filter_on field name. Correct filter_on field name for this service: %s", serv.FilterOn),
-		}
-		return
-	}
-	filterOnIDStr := filterOnID.(string)
+func (c *core) filterLimitChecker(msg *eventstream.Message, filterOnIDStr string) {
 	if c.filterLimiterAllow(msg, filterOnIDStr) {
 		shared.Logger.Info(msg.ID,
 			zap.String("Subject", "Filter"),
 			zap.String("Status", "Allowed"),
 		)
 		go c.handleLimiter(msg)
-		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-			Allow:  true,
-			Reason: "ok",
-		}
-		return
+		allowMessage(true, "ok")
 	} else {
 		queuePayload, _ := json.Marshal(msg)
 
@@ -254,12 +229,31 @@ func (c *core) handleFilter(msg *eventstream.Message) {
 			zap.String("Status", "Rejected"),
 		)
 
-		eventstream.MessageFilterAllow <- &eventstream.MessageFilterStatus{
-			Allow:  false,
-			Reason: "Rate Limit Exceeded",
-		}
+		allowMessage(false, "Rate Limit Exceeded")
 	}
-	return
+}
+
+func (c *core) handleFilter(msg *eventstream.Message) {
+	err := schema.ValidateOpenAPIV3Schema(msg)
+	if err != nil {
+		// TODO: Decide later if this message should be sent to dead letter queue
+		allowMessage(false, string(err.Error()))
+		shared.Logger.Error(err.Error())
+		return
+	}
+	serv, err := c.getServiceFromMsg(msg)
+	if err != nil {
+		allowMessage(false, string(err.Error()))
+		shared.Logger.Error(err.Error())
+		return
+	}
+	filterOnID, exists := msg.ReqBody[serv.FilterOn]
+	if !exists {
+		allowMessage(false, fmt.Sprintf("Incorrect filter_on field name. Correct filter_on field name for this service: %s", serv.FilterOn))
+		return
+	}
+	filterOnIDStr := filterOnID.(string)
+	c.filterLimitChecker(msg, filterOnIDStr)
 }
 
 func (c *core) sendToService(msg *eventstream.Message) error {
