@@ -4321,6 +4321,55 @@ func TestFileStoreMaxMsgsPerSubject(t *testing.T) {
 	})
 }
 
+// Testing the case in https://github.com/nats-io/nats-server/issues/4247
+func TestFileStoreMaxMsgsAndMaxMsgsPerSubject(t *testing.T) {
+	testFileStoreAllPermutations(t, func(t *testing.T, fcfg FileStoreConfig) {
+		fcfg.BlockSize = 128
+		fcfg.CacheExpire = time.Second
+
+		fs, err := newFileStore(
+			fcfg,
+			StreamConfig{
+				Name:     "zzz",
+				Subjects: []string{"kv.>"},
+				Storage:  FileStorage,
+				Discard:  DiscardNew, MaxMsgs: 100, // Total stream policy
+				DiscardNewPer: true, MaxMsgsPer: 1, // Per-subject policy
+			},
+		)
+		require_NoError(t, err)
+		defer fs.Stop()
+
+		for i := 1; i <= 101; i++ {
+			subj := fmt.Sprintf("kv.%d", i)
+			_, _, err := fs.StoreMsg(subj, nil, []byte("value"))
+			if i == 101 {
+				// The 101th iteration should fail because MaxMsgs is set to
+				// 100 and the policy is DiscardNew.
+				require_Error(t, err)
+			} else {
+				require_NoError(t, err)
+			}
+		}
+
+		for i := 1; i <= 100; i++ {
+			subj := fmt.Sprintf("kv.%d", i)
+			_, _, err := fs.StoreMsg(subj, nil, []byte("value"))
+			// All of these iterations should fail because MaxMsgsPer is set
+			// to 1 and DiscardNewPer is set to true, forcing us to reject
+			// cases where there is already a message on this subject.
+			require_Error(t, err)
+		}
+
+		if state := fs.State(); state.Msgs != 100 || state.FirstSeq != 1 || state.LastSeq != 100 || len(state.Deleted) != 0 {
+			// There should be 100 messages exactly, as the 101st subject
+			// should have been rejected in the first loop, and any duplicates
+			// on the other subjects should have been rejected in the second loop.
+			t.Fatalf("Bad state: %+v", state)
+		}
+	})
+}
+
 func TestFileStoreSubjectStateCacheExpiration(t *testing.T) {
 	testFileStoreAllPermutations(t, func(t *testing.T, fcfg FileStoreConfig) {
 		fcfg.BlockSize = 32
@@ -5407,4 +5456,84 @@ func TestFileStoreConsumerStoreEncodeAfterRestart(t *testing.T) {
 			t.Fatalf("Consumer state is wrong %+v vs %+v", o.(*consumerFileStore).state, state)
 		}
 	})
+}
+
+func TestFileStoreNumPendingLargeNumBlks(t *testing.T) {
+	// No need for all permutations here.
+	storeDir := t.TempDir()
+	fcfg := FileStoreConfig{
+		StoreDir:  storeDir,
+		BlockSize: 128, // Small on purpose to create alot of blks.
+	}
+	fs, err := newFileStore(fcfg, StreamConfig{Name: "zzz", Subjects: []string{"zzz"}, Storage: FileStorage})
+	require_NoError(t, err)
+
+	subj, msg := "zzz", bytes.Repeat([]byte("X"), 100)
+	numMsgs := 10_000
+
+	for i := 0; i < numMsgs; i++ {
+		fs.StoreMsg(subj, nil, msg)
+	}
+
+	start := time.Now()
+	total, _ := fs.NumPending(4000, "zzz", false)
+	require_True(t, time.Since(start) < 5*time.Millisecond)
+	require_True(t, total == 6001)
+
+	start = time.Now()
+	total, _ = fs.NumPending(6000, "zzz", false)
+	require_True(t, time.Since(start) < 5*time.Millisecond)
+	require_True(t, total == 4001)
+
+	// Now delete a message in first half and second half.
+	fs.RemoveMsg(1000)
+	fs.RemoveMsg(9000)
+
+	start = time.Now()
+	total, _ = fs.NumPending(4000, "zzz", false)
+	require_True(t, time.Since(start) < 50*time.Millisecond)
+	require_True(t, total == 6000)
+
+	start = time.Now()
+	total, _ = fs.NumPending(6000, "zzz", false)
+	require_True(t, time.Since(start) < 50*time.Millisecond)
+	require_True(t, total == 4000)
+}
+
+func TestFileStoreRestoreEncryptedWithNoKeyFuncFails(t *testing.T) {
+	// No need for all permutations here.
+	fcfg := FileStoreConfig{StoreDir: t.TempDir(), Cipher: AES}
+	scfg := StreamConfig{Name: "zzz", Subjects: []string{"zzz"}, Storage: FileStorage}
+
+	// Create at first with encryption (prf)
+	prf := func(context []byte) ([]byte, error) {
+		h := hmac.New(sha256.New, []byte("dlc22"))
+		if _, err := h.Write(context); err != nil {
+			return nil, err
+		}
+		return h.Sum(nil), nil
+	}
+
+	fs, err := newFileStoreWithCreated(
+		fcfg, scfg,
+		time.Now(),
+		prf,
+	)
+	require_NoError(t, err)
+
+	subj, msg := "zzz", bytes.Repeat([]byte("X"), 100)
+	numMsgs := 100
+	for i := 0; i < numMsgs; i++ {
+		fs.StoreMsg(subj, nil, msg)
+	}
+
+	fs.Stop()
+
+	// Make sure if we try to restore with no prf (key) that it fails.
+	_, err = newFileStoreWithCreated(
+		fcfg, scfg,
+		time.Now(),
+		nil,
+	)
+	require_Error(t, err, errNoMainKey)
 }

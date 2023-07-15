@@ -2167,6 +2167,25 @@ func (c *client) generateClientInfoJSON(info Info) []byte {
 	info.MaxPayload = c.mpay
 	if c.isWebsocket() {
 		info.ClientConnectURLs = info.WSConnectURLs
+		if c.srv != nil { // Otherwise lame duck info can panic
+			c.srv.websocket.mu.RLock()
+			info.TLSAvailable = c.srv.websocket.tls
+			if c.srv.websocket.tls && c.srv.websocket.server != nil {
+				if tc := c.srv.websocket.server.TLSConfig; tc != nil {
+					info.TLSRequired = !tc.InsecureSkipVerify
+				}
+			}
+			if c.srv.websocket.listener != nil {
+				laddr := c.srv.websocket.listener.Addr().String()
+				if h, p, err := net.SplitHostPort(laddr); err == nil {
+					if p, err := strconv.Atoi(p); err == nil {
+						info.Host = h
+						info.Port = p
+					}
+				}
+			}
+			c.srv.websocket.mu.RUnlock()
+		}
 	}
 	info.WSConnectURLs = nil
 	// Generate the info json
@@ -3108,19 +3127,13 @@ var needFlush = struct{}{}
 // deliverMsg will deliver a message to a matching subscription and its underlying client.
 // We process all connection/client types. mh is the part that will be protocol/client specific.
 func (c *client) deliverMsg(prodIsMQTT bool, sub *subscription, acc *Account, subject, reply, mh, msg []byte, gwrply bool) bool {
-	// Check sub client and check echo
-	if sub.client == nil || c == sub.client && !sub.client.echo {
+	// Check sub client and check echo. Only do this if not a service import.
+	if sub.client == nil || (c == sub.client && !sub.client.echo && !sub.si) {
 		return false
 	}
 
 	client := sub.client
 	client.mu.Lock()
-
-	// Check echo
-	if c == client && !client.echo {
-		client.mu.Unlock()
-		return false
-	}
 
 	// Check if we have a subscribe deny clause. This will trigger us to check the subject
 	// for a match against the denied subjects.
