@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -35,7 +36,7 @@ func CreateServiceHandler(ctx echo.Context) error {
 		shared.Logger.Info("Key array is empty")
 	} else {
 		if err != nil {
-			shared.Logger.Error(fmt.Sprintf("Key array is empty: %s", err.Error()))
+			shared.Logger.Error(fmt.Sprintf("Unable to retreive keys from the Service Key Value store: %s", err.Error()))
 
 			return ctx.JSON(http.StatusInternalServerError, echo.Map{
 				"message": "Unable to retreive keys from the Service Key Value store",
@@ -43,7 +44,11 @@ func CreateServiceHandler(ctx echo.Context) error {
 		}
 
 		for _, key := range keys {
-			value, _ := kv.Get(key)
+			value, err := kv.Get(key)
+			if err != nil {
+				shared.Logger.Error(fmt.Sprintf("Unable to retreive value corresponding to a key from the Service Key Value store: %s", err.Error()))
+			}
+
 			existingService := new(Service)
 			duplicateMsgResponse := "Service of type %s with same auth details already exists"
 
@@ -64,7 +69,7 @@ func CreateServiceHandler(ctx echo.Context) error {
 						"message": fmt.Sprintf(duplicateMsgResponse, SendGrid),
 					})
 				}
-			
+
 			// TODO: add check for vonage
 			case Vonage:
 
@@ -91,6 +96,7 @@ func CreateServiceHandler(ctx echo.Context) error {
 func addMainLimitertoKVStore(serv *Service) {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MainLimiterKV)
 	if err != nil {
+		err = errors.New("failed to retreive mainLimiter KV store")
 		shared.Logger.Error(err.Error())
 	}
 
@@ -137,7 +143,7 @@ func GetServiceHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "bucket not found",
+		"message": "service bucket not found",
 	})
 }
 
@@ -203,7 +209,7 @@ func DeleteServiceHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "bucket not found",
+		"message": "service bucket not found",
 	})
 }
 
@@ -232,6 +238,6 @@ func DeleteServiceAllHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, echo.Map{
-		"message": "bucket not found",
+		"message": "service bucket not found",
 	})
 }

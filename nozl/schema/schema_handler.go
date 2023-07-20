@@ -15,12 +15,12 @@ import (
 func serviceIDExists(serviceID string) bool {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
+		shared.Logger.Error("Failed to retreive Service KV store!")
 		return false
 	}
 
 	if _, err := kv.Get(serviceID); err != nil {
-		shared.Logger.Error("Failed to retreive value from KV store!")
+		shared.Logger.Error("ServiceID does not exist!")
 		return false
 	}
 
@@ -185,20 +185,26 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 	fileID := ctx.Param("file_id")
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return err
+		shared.Logger.Error("Failed to retreive SchemaFile KV store!")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Failed to retreive SchemaFile KV store",
+		})	
 	}
 
 	value, err := kv.Get(fileID)
 	if err != nil {
 		shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
-		return err
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Key does not exist: File ID is incorrect",
+		})	
 	}
 
 	var schemaFile SchemaFile
 	if err := json.Unmarshal(value.Value(), &schemaFile); err != nil {
 		shared.Logger.Error("Failed to unmarshal value from KV store!")
-		return err
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Failed to unmarshal value from KV store!",
+		})
 	}
 
 	serviceID := schemaFile.ServiceID
@@ -235,14 +241,19 @@ func DeleteOpenApiSpecHandler(ctx echo.Context) error {
 func DeleteAllOpenApiSpecHandler(ctx echo.Context) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
-		return err
+		shared.Logger.Error("Failed to retreive schema KV store!")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Failed to retreive schema KV store",
+		})
 	}
 
 	allKeys, err := kv.Keys()
 	if err != nil {
-		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
-		return err
+		shared.Logger.Error("Failed to fetch keys from schema KV store!")
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "Schema KV store is empty",
+		})
+		// return errors.New("SchemaDetails KV store is empty")
 	}
 
 	for _, key := range allKeys {
@@ -251,14 +262,18 @@ func DeleteAllOpenApiSpecHandler(ctx echo.Context) error {
 
 	kv, err = eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
-		return err
+		shared.Logger.Error("Failed to retreive SchemaFile KV store!")
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{
+			"message": "Failed to retreive SchemaFile KV store",
+		})
 	}
 
 	allKeys, err = kv.Keys()
 	if err != nil {
-		shared.Logger.Error("Failed to retreive schemaDetails KV store!")
-		return err
+		shared.Logger.Error("Failed to fetch keys from SchemaFile KV store!")
+		return ctx.JSON(http.StatusOK, echo.Map{
+			"message": "SchemaFile KV store is empty",
+		})
 	}
 
 	for _, key := range allKeys {
@@ -275,7 +290,7 @@ func GetAllOpenApiSpecHandler(ctx echo.Context) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Error in retreiving schema files",
+			"message": "Error in retreiving SchemaFile KV store",
 		})
 	}
 
@@ -311,20 +326,20 @@ func GetAllOpenApiSpecHandler(ctx echo.Context) error {
 func deleteSavedOperations(serviceID string) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
+		shared.Logger.Error("Failed to retreive Schema KV store!")
 		return err
 	}
 
 	allKeys, err := kv.Keys()
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return err
+		shared.Logger.Error("No Operation IDs found in KV store!")
+		return nil
 	}
 
 	for _, key := range allKeys {
 		value, err := kv.Get(key)
 		if err != nil {
-			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+			shared.Logger.Error("Failed to retreive Operations KV pair or the key does not exist!")
 			return err
 		}
 
@@ -346,20 +361,20 @@ func deleteSavedOperations(serviceID string) error {
 func deleteSavedSchemaFiles(serviceID string) error {
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaFileKV)
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
+		shared.Logger.Error("Failed to retreive SchemaFile KV store!")
 		return err
 	}
 
 	allKeys, err := kv.Keys()
 	if err != nil {
-		shared.Logger.Error("Failed to retreive KV store!")
-		return err
+		shared.Logger.Error("no schemas found in KV store!")
+		return nil
 	}
 
 	for _, key := range allKeys {
 		value, err := kv.Get(key)
 		if err != nil {
-			shared.Logger.Error("Failed to retreive KV pair or the key does not exist!")
+			shared.Logger.Error("Failed to retreive schemaFile KV pair or the key does not exist!")
 			return err
 		}
 

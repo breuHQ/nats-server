@@ -97,7 +97,7 @@ func GetAllMsgWaitListHandler(ctx echo.Context) error {
 	err := retrieveAllValKVStore(shared.MsgWaitListKV, ctx)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Unable to retreive Key Value store",
+			"message": "Unable to retreive MsgWaitList Key Value store",
 		})
 	}
 
@@ -108,7 +108,7 @@ func GetMsgLogHandler(ctx echo.Context) error {
 	err := retrieveAllValKVStore(shared.MsgLogKV, ctx)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
-			"message": "Unable to retreive Key Value store",
+			"message": "Unable to retreive MsgLog Key Value store",
 		})
 	}
 

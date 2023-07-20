@@ -293,7 +293,7 @@ func (c *core) LogSentMessage(msg *eventstream.Message) error {
 	// fmt.Println("Logging sent message")
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.MsgLogKV)
 	if err != nil {
-		return err
+		return errors.New("failed to retreive msgLog KV store")
 	}
 
 	msg.SentAt = time.Now().Format("2006-01-02 15:04:05")
@@ -312,13 +312,13 @@ func (c *core) getServiceFromMsg(msg *eventstream.Message) (*service.Service, er
 	kv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.ServiceKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return nil, err
+		return nil, errors.New("failed to retreive service KV store")
 	}
 
 	entry, err := kv.Get(msg.ServiceID)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return nil, err
+		return nil, errors.New("serviceID is incorrect")
 	}
 
 	if err := json.Unmarshal(entry.Value(), &currService); err != nil {

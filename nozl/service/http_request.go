@@ -45,6 +45,9 @@ func (sg *SendGridHTTP) GenericHTTPRequest(svc *Service, msg *eventstream.Messag
 	}
 
 	httpReq, err := http.NewRequest(schemaValid.HttpMethod, ep, payload)
+	if err != nil {
+		shared.Logger.Error(err.Error())
+	}
 
 	for key, val := range headers {
 		httpReq.Header.Add(key, val)
