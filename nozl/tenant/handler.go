@@ -122,7 +122,7 @@ func DeleteTenantHandler(ctx echo.Context) error {
 		}
 
 		return ctx.JSON(http.StatusOK, echo.Map{
-			"message": fmt.Sprintf("Tenant deleted with account SID: %s", tntName),
+			"message": fmt.Sprintf("Tenant deleted with ID: %s", tntName),
 		})
 	}
 

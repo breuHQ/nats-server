@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -311,13 +312,13 @@ func GetMsgRefSchema(msg *eventstream.Message) (*Schema, error) {
 	schemaKv, err := eventstream.Eventstream.RetreiveKeyValStore(shared.SchemaKV)
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return nil, err
+		return nil, errors.New("failed to retreive schemaDetails KV store")
 	}
 
 	entry, err := schemaKv.Get(fmt.Sprintf("%s_%s", msg.ServiceID, msg.OperationID))
 	if err != nil {
 		shared.Logger.Error(err.Error())
-		return nil, err
+		return nil, errors.New("serviceID or OperationID is incorrect")
 	}
 
 	var schemaCurr *Schema
