@@ -148,7 +148,7 @@ func UpdateCurrFilterConf(limit int) error {
 
 	allKey, err := kv.Keys()
 	if err != nil {
-		return err
+		return nil
 	}
 
 	for _, key := range allKey {
