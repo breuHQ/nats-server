@@ -147,6 +147,7 @@ func UpdateCurrFilterConf(limit int) error {
 	}
 
 	allKey, err := kv.Keys()
+	// TODO: Return nil only if there are no keys in the bucket otherwise return err
 	if err != nil {
 		return nil
 	}
